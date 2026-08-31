@@ -1,0 +1,27 @@
+/* App-level additions on top of nocturne-styles.css */
+html{background:#161826}
+body{margin:0}
+input,select,textarea,button{font-family:inherit}
+select.input option{background:#232532;color:#e9e9ed}
+a{color:var(--color-accent)}
+a:hover{color:var(--color-accent-400)}
+.btn{white-space:nowrap;flex:none}
+
+*, *::before, *::after { -webkit-tap-highlight-color: transparent; }
+
+button{-webkit-appearance:none;appearance:none;}
+
+@keyframes ftpUp{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+@keyframes ftpFade{from{opacity:0}to{opacity:1}}
+
+.ftp-row-hover:hover{ background: color-mix(in srgb, var(--color-text) 6%, transparent); }
+.ftp-hover-tint:hover{ background: color-mix(in srgb, var(--color-text) 5%, transparent); }
+
+@media print{
+  [data-np]{display:none !important}
+  body{background:#fff !important;color:#111 !important}
+  .card{box-shadow:none !important;border:1px solid #ccc;background:#fff !important}
+}
+
+.ftp-scroll::-webkit-scrollbar{ width:8px; height:8px; }
+.ftp-scroll::-webkit-scrollbar-thumb{ background: var(--color-neutral-700); border-radius:99px; }
