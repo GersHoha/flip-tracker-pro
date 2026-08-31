@@ -9,6 +9,19 @@ a:hover{color:var(--color-accent-400)}
 
 *, *::before, *::after { -webkit-tap-highlight-color: transparent; }
 
+/* Fields must be able to shrink inside flex rows (iOS date inputs have a large
+   intrinsic min-width that otherwise makes them overflow and overlap). */
+.field{min-width:0}
+input.input, select.input, textarea.input{min-width:0;max-width:100%}
+/* iOS restyles date inputs natively; strip that so they match every other .input */
+input[type="date"].input{
+  -webkit-appearance:none;
+  appearance:none;
+  display:flex;
+  align-items:center;
+}
+input[type="date"].input::-webkit-date-and-time-value{text-align:left;margin:0}
+
 button{-webkit-appearance:none;appearance:none;}
 
 @keyframes ftpUp{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}

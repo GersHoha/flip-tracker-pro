@@ -120,18 +120,26 @@ class App {
     else { const sc = document.createElement('script'); sc.src = 'https://cdn.apple-mapkit.com/mk/5.x.x/mapkit.js'; sc.crossOrigin = 'anonymous'; sc.onload = start; sc.onerror = () => this.setState({mapStatus:'error'}); document.head.appendChild(sc); }
   }
   mapReady(){ return this.state.mapStatus === 'ready' && window.mapkit; }
+  // MapKit callbacks silently never fire when the token isn't actually accepted —
+  // race every lookup against a timeout so the UI can't get stuck on "Looking up…".
+  withTimeout(p, ms){
+    return new Promise((res, rej) => {
+      const t = setTimeout(() => { const e = new Error('timeout'); e.ftpTimeout = true; this.setState({mapStatus:'error'}); rej(e); }, ms);
+      p.then(v => { clearTimeout(t); res(v); }, e => { clearTimeout(t); rej(e); });
+    });
+  }
   geocode(q){
     if(this.geo[q]) return Promise.resolve(this.geo[q]);
-    return new Promise((res, rej) => { new window.mapkit.Geocoder({getsUserLocation:false}).lookup(q, (e, d) => {
+    return this.withTimeout(new Promise((res, rej) => { new window.mapkit.Geocoder({getsUserLocation:false}).lookup(q, (e, d) => {
       if(e || !d || !d.results || !d.results.length) return rej(e || new Error('No match'));
       const r = d.results[0]; const out = {lat:r.coordinate.latitude, lng:r.coordinate.longitude, formatted:r.formattedAddress}; this.geo[q] = out; res(out);
-    }); });
+    }); }), 10000);
   }
   route(a, b){
-    return new Promise((res, rej) => { new window.mapkit.Directions().route({origin:new window.mapkit.Coordinate(a.lat,a.lng), destination:new window.mapkit.Coordinate(b.lat,b.lng), transportType:window.mapkit.Directions.Transport.Automobile}, (e, d) => {
+    return this.withTimeout(new Promise((res, rej) => { new window.mapkit.Directions().route({origin:new window.mapkit.Coordinate(a.lat,a.lng), destination:new window.mapkit.Coordinate(b.lat,b.lng), transportType:window.mapkit.Directions.Transport.Automobile}, (e, d) => {
       if(e || !d || !d.routes || !d.routes.length) return rej(e || new Error('No route'));
       const r = d.routes[0]; res({miles:Math.round(r.distance/1609.34*10)/10, min:Math.round(r.expectedTravelTime/60), polyline:r.polyline});
-    }); });
+    }); }), 10000);
   }
   refFn(key){ return key; }
   mountAllMaps(){
@@ -191,7 +199,7 @@ class App {
     this.setState({lookupNote:'Looking up route…'});
     try{ const c = await this.geocode(e.address); const r = await this.route(this.st().homeCoords, c);
       this.setState(s => ({edit:Object.assign({}, s.edit, {coords:{lat:c.lat,lng:c.lng}, miles:String(r.miles), min:String(r.min)}), lookupNote:'Route found: '+r.miles+' mi · '+r.min+' min one-way ('+c.formatted+')'}));
-    }catch(err){ this.setState({lookupNote:'Couldn’t geocode that address — check it or enter miles manually.'}); }
+    }catch(err){ this.setState({lookupNote: err && err.ftpTimeout ? 'Route lookup timed out — your MapKit token may be invalid (check Settings). Enter miles manually meanwhile.' : 'Couldn’t geocode that address — check it or enter miles manually.'}); }
   }; }
   saveItem(){ return () => {
     const L = this.L(); const e = this.state.edit; if(!e.title.trim()){ this.toastMsg('Give it a title'); return; }
@@ -236,7 +244,7 @@ class App {
     this.setState({evalNote:'Looking up route…'});
     try{ const c = await this.geocode(ev.address); const r = await this.route(this.st().homeCoords, c); this.rt.eval = r;
       this.setState(s => ({evalD:Object.assign({}, s.evalD, {coords:{lat:c.lat,lng:c.lng}, miles:String(r.miles), min:String(r.min)}), evalNote:'Route: '+r.miles+' mi · '+r.min+' min one-way'}), ()=>this.populateMap('eval'));
-    }catch(err){ this.setState({evalNote:'Couldn’t geocode that address.'}); }
+    }catch(err){ this.setState({evalNote: err && err.ftpTimeout ? 'Route lookup timed out — your MapKit token may be invalid (check Settings).' : 'Couldn’t geocode that address.'}); }
   }; }
   evalCalc(){
     const L = this.L(); const s = this.st(); const ev = this.state.evalD; const n = L.num;
