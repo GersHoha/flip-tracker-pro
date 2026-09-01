@@ -224,7 +224,7 @@ class App {
   advance(id){ return () => {
     const L = this.L(); const it = this.vd().items.find(x=>x.id===id); if(!it) return;
     if(it.status==='watching'){ this.save(d => { const x = d.items.find(y=>y.id===id); x.status='purchased'; if(x.purchasePrice==null) x.purchasePrice = x.target!=null?x.target:x.ask; if(!x.purchaseDate) x.purchaseDate = L.todayISO(); }); this.toastMsg('Marked purchased'); }
-    else if(it.status==='purchased'){ if(it.listPrice==null){ this.openEdit(id)(); this.toastMsg('Set a listing price'); return; } this.save(d => { const x = d.items.find(y=>y.id===id); x.status='listed'; if(!x.listDate) x.listDate = L.todayISO(); }); this.toastMsg('Marked listed'); }
+    else if(it.status==='purchased'){ if(it.listPrice==null){ this.openEdit(id, {status:'listed', listDate:L.todayISO()})(); this.toastMsg('Set a listing price, then save'); return; } this.save(d => { const x = d.items.find(y=>y.id===id); x.status='listed'; if(!x.listDate) x.listDate = L.todayISO(); }); this.toastMsg('Marked listed'); }
     else if(it.status==='listed'){ this.setState({sellD:{price:it.listPrice!=null?String(it.listPrice):'', date:L.todayISO(), platform:it.listedOn[0]||it.platform||'Facebook Marketplace', feePct:String(it.feePct||0), delivered:false, delAddress:'', delMiles:'', delTolls:''}}); }
   }; }
   confirmSell(){ return () => {
