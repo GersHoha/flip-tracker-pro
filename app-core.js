@@ -56,21 +56,34 @@ class App {
   }
   h(fn){ this.handlers.push(fn); return this.handlers.length-1; }
   render(){
+    // While the user is typing, defer the re-render until they pause — the input
+    // already shows the typed value, and rebuilding the DOM per keystroke makes
+    // the screen jump on iOS.
+    if(this._typing){
+      clearTimeout(this._rt);
+      this._rt = setTimeout(() => this.render(), 350);
+      return;
+    }
+    clearTimeout(this._rt);
     const active = document.activeElement;
     const bindKey = active && active.getAttribute && active.getAttribute('data-bind');
     const selStart = active && ('selectionStart' in active) ? active.selectionStart : null;
     const selEnd = active && ('selectionEnd' in active) ? active.selectionEnd : null;
     const scrollY = window.scrollY;
+    const scrolls = {};
+    this.root.querySelectorAll('[data-skey]').forEach(el => { if(el.scrollTop) scrolls[el.getAttribute('data-skey')] = el.scrollTop; });
     this.handlers = [];
     const R = this.renderVals();
     this.lastR = R;
     this.root.innerHTML = this.template(R);
     this.wire();
+    Object.keys(scrolls).forEach(k => { const el = this.root.querySelector('[data-skey="'+k+'"]'); if(el) el.scrollTop = scrolls[k]; });
     if(bindKey){
       let el = null;
       try{ el = this.root.querySelector('[data-bind="'+CSS.escape(bindKey)+'"]'); }catch(e){}
-      if(el){ el.focus({preventScroll:true}); if(selStart!=null && el.setSelectionRange){ try{ el.setSelectionRange(selStart, selEnd); }catch(e){} } window.scrollTo(0, scrollY); }
+      if(el){ el.focus({preventScroll:true}); if(selStart!=null && el.setSelectionRange){ try{ el.setSelectionRange(selStart, selEnd); }catch(e){} } }
     }
+    window.scrollTo(0, scrollY);
     this.mountAllMaps();
   }
   wire(){
@@ -83,7 +96,12 @@ class App {
       if(tag==='SELECT') evt = 'change';
       else if(tag==='INPUT') evt = (el.type==='checkbox'||el.type==='file') ? 'change' : 'input';
       else if(tag==='TEXTAREA') evt = 'input';
-      el.addEventListener(evt, fn);
+      const typing = evt==='input' && (tag==='TEXTAREA' || (tag==='INPUT' && el.type!=='date'));
+      el.addEventListener(evt, ev => {
+        if(typing) this._typing = true;
+        try{ fn(ev); } finally { this._typing = false; }
+      });
+      if(typing) el.addEventListener('blur', () => { if(this._rt){ clearTimeout(this._rt); this._rt = null; this.render(); } });
     });
   }
   toastMsg(t){ clearTimeout(this._tt); this.setState({toast:t}); this._tt = setTimeout(()=>this.setState({toast:''}), 2000); }

@@ -41,7 +41,7 @@ App.prototype.tplRuns = function(R){
       + '<div class="field"><label>Run name</label><input class="input" value="'+esc(R.r_name)+'" data-bind="runD.name" data-h="'+this.h(R.r_setName)+'"></div>'
       + '<div><div style="display:flex;justify-content:space-between;align-items:baseline"><label style="font-size:12px;color:color-mix(in srgb, var(--color-text) 70%, transparent)">Pick stops (Watching &amp; Purchased)</label><span class="text-muted" style="font-size:11px">'+esc(R.r_selCount)+'</span></div>';
     if(R.r_noCands) out += '<p class="text-muted" style="font-size:12px;margin:6px 0 0">Nothing to pick up — add Watching or Purchased items first.</p>';
-    out += '<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;max-height:240px;overflow:auto" class="ftp-scroll">';
+    out += '<div data-skey="runcands" style="display:flex;flex-direction:column;gap:6px;margin-top:6px;max-height:240px;overflow:auto" class="ftp-scroll">';
     R.r_cands.forEach(c => {
       out += '<button type="button" data-h="'+this.h(c.toggle)+'" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:transparent;border:1px solid '+c.bd+';border-radius:var(--radius-md);cursor:pointer;color:inherit;text-align:left"><i class="'+c.icon+'" style="font-size:17px;color:'+c.fg+';flex:none"></i><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(c.title)+'</span><span class="text-muted" style="display:block;font-size:10.5px">'+esc(c.sub)+'</span></span><span class="'+c.statusCls+'" style="font-size:10px;flex:none">'+esc(c.statusLabel)+'</span></button>';
     });
