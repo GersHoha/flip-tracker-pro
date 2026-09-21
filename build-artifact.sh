@@ -4,17 +4,7 @@
 set -euo pipefail
 
 APP="/c/Users/gersi/OneDrive/Documents/Claude Apps/Flip Tracker Pro/flip-tracker-pro"
-PH="/c/Users/gersi/AppData/Local/Temp/claude/C--Users-gersi-OneDrive-Documents-Claude-Apps-Flip-Tracker-Pro-Screenshots-of-UI-from-Claude-Design/90bcbd64-383a-48ca-9584-98a74d6467fa/scratchpad/phosphor"
 OUT="$APP/flip-tracker-pro.artifact.html"
-
-REG_B64=$(base64 -w0 "$PH/Phosphor-regular.woff2")
-FILL_B64=$(base64 -w0 "$PH/Phosphor-fill.woff2")
-
-# Phosphor CSS with the multi-format src replaced by a single embedded woff2
-perl -0777 -pe 's/src:\s*\n(?:\s*url\([^)]*\)[^,;]*,?\n?)+;/src: url("data:font\/woff2;base64,__REG__") format("woff2");/s' "$PH/regular.css" > /tmp/ph-reg.css
-perl -0777 -pe 's/src:\s*\n(?:\s*url\([^)]*\)[^,;]*,?\n?)+;/src: url("data:font\/woff2;base64,__FILL__") format("woff2");/s' "$PH/fill.css" > /tmp/ph-fill.css
-perl -pi -e "s|__REG__|$REG_B64|" /tmp/ph-reg.css
-perl -pi -e "s|__FILL__|$FILL_B64|" /tmp/ph-fill.css
 
 # Nocturne CSS without the @import (Google Fonts is linked directly instead)
 grep -v "@import" "$APP/nocturne-styles.css" > /tmp/nocturne.css
@@ -34,8 +24,7 @@ fi
   echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
   echo '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">'
   echo '<style>'
-  cat /tmp/ph-reg.css
-  cat /tmp/ph-fill.css
+  cat "$APP/phosphor-embedded.css"
   cat /tmp/nocturne.css
   cat "$APP/app.css"
   echo '</style>'

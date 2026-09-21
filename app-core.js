@@ -15,7 +15,7 @@ class App {
     this.mq = window.matchMedia('(max-width: 820px)');
     this.maps = {}; this.rt = {}; this.geo = {}; this.handlers = [];
     this.state = {ready:false, mq:this.mq.matches, screen:'home', moneyTab:'pnl', plusOpen:false, moreOpen:false,
-      detailId:null, sellD:null, edit:null, quick:'', quickNote:'', lookupNote:'', evalNote:'',
+      detailId:null, sellD:null, splitD:null, edit:null, quick:'', quickNote:'', lookupNote:'', evalNote:'',
       evalD:{ask:'',target:'',address:'',miles:'',min:'',tolls:'0',low:'',exp:'',high:'',feePct:'0',days:'7',prep:''},
       runD:null, runNote:'', search:'', fStatus:'all', fCat:'all', sortBy:'newest',
       range:'3m', aCat:'all', pnlMode:'month', pnlCur:0, expD:{date:'',cat:'Packing supplies',desc:'',amount:''},
@@ -226,7 +226,9 @@ class App {
       const base = {title:e.title.trim(), cat:e.cat, platform:e.platform, status:e.status, ask:n(e.ask), target:n(e.target), purchasePrice:n(e.purchasePrice), purchaseDate:e.purchaseDate||null, pickupDate:e.pickupDate||null, pickupAddress:e.address.trim(), coords:e.coords, condition:e.condition, notes:e.notes, url:e.url, listPrice:n(e.listPrice), listDate:e.listDate||null, soldPrice:n(e.soldPrice), soldDate:e.soldDate||null, soldPlatform:e.soldPlatform, feeMode:'pct', feePct:n(e.feePct)||0, delivered:e.delivered, listedOn:e.listedOn};
       const ex = e.id ? d.items.find(x=>x.id===e.id) : null;
       const pickup = Object.assign({}, ex ? ex.pickup : null, {miles:n(e.miles), min:n(e.min), tolls:n(e.tolls)||0});
-      if(ex && ex.pickup && ex.pickup.runId && n(e.miles)===ex.pickup.miles){ pickup.runId = ex.pickup.runId; pickup.alloc = ex.pickup.alloc; pickup.rtMiles = ex.pickup.rtMiles; } else { delete pickup.runId; delete pickup.alloc; delete pickup.rtMiles; }
+      // keep a run's or lot's allocated trip share unless the user changed the miles themselves
+      const exMiles = (ex && ex.pickup && ex.pickup.miles!=null) ? ex.pickup.miles : null;
+      if(ex && ex.pickup && (ex.pickup.runId || ex.pickup.alloc!=null) && n(e.miles)===exMiles){ if(ex.pickup.runId) pickup.runId = ex.pickup.runId; pickup.alloc = ex.pickup.alloc; pickup.rtMiles = ex.pickup.rtMiles; if(n(e.min)==null && ex.pickup.min!=null) pickup.min = ex.pickup.min; } else { delete pickup.runId; delete pickup.alloc; delete pickup.rtMiles; }
       base.pickup = pickup;
       base.delivery = e.delivered ? {address:e.delAddress, miles:n(e.delMiles), min:null, tolls:n(e.delTolls)||0} : null;
       if(e.status!=='watching' && !base.purchaseDate) base.purchaseDate = L.todayISO();
@@ -237,10 +239,16 @@ class App {
     });
     this.setState({edit:null}); this.toastMsg(e.id ? 'Item updated' : 'Item added');
   }; }
-  delItem(id){ return () => { if(!confirm('Delete this item? This can’t be undone.')) return; this.save(d => { d.items = d.items.filter(x=>x.id!==id); }); this.setState({detailId:null}); this.toastMsg('Item deleted'); }; }
+  delItem(id){ return () => {
+    const it = this.vd().items.find(x=>x.id===id);
+    const msg = (it&&it.isLot) ? 'Delete this lot record? Its parts stay as separate items.' : 'Delete this item? This can’t be undone.';
+    if(!confirm(msg)) return;
+    this.save(d => { d.items = d.items.filter(x=>x.id!==id); d.items.forEach(x => { if(x.lotId===id) delete x.lotId; }); });
+    this.setState({detailId:null}); this.toastMsg('Item deleted');
+  }; }
   openDetail(id){ return () => { this.setState({detailId:id, sellD:null}); if(this.mapReady()){ const it = this.vd().items.find(x=>x.id===id); if(it && it.coords && !this.rt['d'+id]){ this.route(this.st().homeCoords, it.coords).then(r => { this.rt['d'+id] = r; this.populateMap('detail'); this.render(); }).catch(()=>{}); } } }; }
   advance(id){ return () => {
-    const L = this.L(); const it = this.vd().items.find(x=>x.id===id); if(!it) return;
+    const L = this.L(); const it = this.vd().items.find(x=>x.id===id); if(!it || it.isLot) return;
     if(it.status==='watching'){ this.save(d => { const x = d.items.find(y=>y.id===id); x.status='purchased'; if(x.purchasePrice==null) x.purchasePrice = x.target!=null?x.target:x.ask; if(!x.purchaseDate) x.purchaseDate = L.todayISO(); }); this.toastMsg('Marked purchased'); }
     else if(it.status==='purchased'){ if(it.listPrice==null){ this.openEdit(id, {status:'listed', listDate:L.todayISO()})(); this.toastMsg('Set a listing price, then save'); return; } this.save(d => { const x = d.items.find(y=>y.id===id); x.status='listed'; if(!x.listDate) x.listDate = L.todayISO(); }); this.toastMsg('Marked listed'); }
     else if(it.status==='listed'){ this.setState({sellD:{price:it.listPrice!=null?String(it.listPrice):'', date:L.todayISO(), platform:it.listedOn[0]||it.platform||'Facebook Marketplace', feePct:String(it.feePct||0), delivered:false, delAddress:'', delMiles:'', delTolls:''}}); }
@@ -255,6 +263,42 @@ class App {
   renew(id){ return () => { this.save(d => { const x = d.items.find(y=>y.id===id); if(x) x.renewedDate = this.L().todayISO(); }); this.toastMsg('Renewal logged'); }; }
   reprice(id){ return () => { this.save(d => { const x = d.items.find(y=>y.id===id); if(x && x.listPrice!=null) x.listPrice = Math.round(x.listPrice*0.9); }); this.toastMsg('Repriced −10%'); }; }
   toggleOps(key){ return () => this.save(d => { const t = this.L().todayISO(); if(!d.opsDone) d.opsDone={}; const day = d.opsDone[t] || []; const i = day.indexOf(key); if(i>=0) day.splice(i,1); else day.push(key); d.opsDone = {}; d.opsDone[t] = day; }); }
+  // ——— lot split (part out one purchase into several listings) ———
+  openSplit(id){ return () => {
+    const it = this.vd().items.find(x=>x.id===id); if(!it) return;
+    const total = it.purchasePrice||0;
+    const a = Math.floor(total/2*100)/100; const b = Math.round((total-a)*100)/100;
+    this.setState({splitD:{parentId:id, parts:[{title:'',cost:String(a)},{title:'',cost:String(b)}]}, sellD:null});
+  }; }
+  cancelSplit(){ return () => this.setState({splitD:null}); }
+  splitSetPart(i,k){ return e => this.setState(s => { const parts = s.splitD.parts.map(p=>Object.assign({},p)); parts[i][k] = e.target.value; return {splitD:Object.assign({}, s.splitD, {parts})}; }); }
+  splitAddPart(){ return () => this.setState(s => ({splitD:Object.assign({}, s.splitD, {parts:s.splitD.parts.concat({title:'',cost:'0'})})})); }
+  splitDelPart(i){ return () => this.setState(s => ({splitD:Object.assign({}, s.splitD, {parts:s.splitD.parts.filter((p,j)=>j!==i)})})); }
+  splitEven(){ return () => this.setState(s => {
+    const it = this.vd().items.find(x=>x.id===s.splitD.parentId); const total = (it&&it.purchasePrice)||0;
+    const n = s.splitD.parts.length; const per = Math.floor(total/n*100)/100;
+    const parts = s.splitD.parts.map((p,i)=>Object.assign({},p,{cost:String(i===n-1 ? Math.round((total-per*(n-1))*100)/100 : per)}));
+    return {splitD:Object.assign({}, s.splitD, {parts})};
+  }); }
+  confirmSplit(){ return () => {
+    const L = this.L(); const s = this.st(); const sd = this.state.splitD;
+    const parent = this.vd().items.find(x=>x.id===sd.parentId); if(!parent) return;
+    const parts = sd.parts.map(p=>({title:p.title.trim(), cost:L.num(p.cost)||0})).filter(p=>p.title);
+    if(parts.length<2){ this.toastMsg('Name at least two parts'); return; }
+    const totalCost = parts.reduce((a,p)=>a+p.cost,0); const orig = parent.purchasePrice||0;
+    if(Math.abs(totalCost-orig)>0.02){ this.toastMsg('Part costs must add up to '+L.money(orig)); return; }
+    const pt = L.pickupTrip(parent, s); const tripTotal = pt?pt.total:0; const rt = pt?pt.rtMiles:0; const min = (pt&&pt.min)?pt.min:0;
+    const shares = parts.map(p => totalCost>0 ? p.cost/totalCost : 1/parts.length);
+    this.save(d => {
+      const px = d.items.find(x=>x.id===parent.id); if(!px) return;
+      const idx = d.items.indexOf(px);
+      const kids = parts.map((p,i)=>({id:L.uid(), createdAt:L.todayISO(), lotId:px.id, title:p.title, cat:px.cat, platform:px.platform, status:'purchased', ask:null, target:null, purchasePrice:p.cost, purchaseDate:px.purchaseDate, pickupAddress:px.pickupAddress, coords:px.coords, condition:'', notes:'', url:px.url||'', feeMode:'pct', feePct:0, listedOn:[], listPrice:null, listDate:null, soldPrice:null, soldDate:null, soldPlatform:null, delivered:false, delivery:null,
+        pickup:{alloc:Math.round(shares[i]*tripTotal*100)/100, rtMiles:Math.round(shares[i]*rt*10)/10, min:Math.round(shares[i]*min)}}));
+      px.isLot = true; px.lotCost = px.purchasePrice; px.purchasePrice = null;
+      d.items.splice(idx+1, 0, ...kids);
+    });
+    this.setState({splitD:null}); this.toastMsg('Split into '+parts.length+' listings — tracked under the lot');
+  }; }
   // ——— evaluator ———
   lookupEval(){ return async () => {
     const ev = this.state.evalD; if(!ev.address){ this.setState({evalNote:'Enter a pickup address first.'}); return; }

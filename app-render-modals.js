@@ -9,12 +9,47 @@ App.prototype.tplDetail = function(R){
   out += '<div style="display:flex;gap:8px;flex-wrap:wrap">'
     + (R.d_hasAddr ? '<a class="btn btn-primary" href="'+esc(R.d_navHref)+'" target="_blank" rel="noopener"><i class="ph ph-navigation-arrow"></i>Navigate</a>' : '')
     + (R.d_canAdv ? '<button type="button" class="btn btn-primary" data-h="'+this.h(R.d_advance)+'"><i class="ph ph-arrow-right"></i>'+esc(R.d_advLabel)+'</button>' : '')
+    + (R.d_splitShow ? '<button type="button" class="btn btn-secondary" data-h="'+this.h(R.d_split)+'"><i class="ph ph-arrows-split"></i>Split into parts</button>' : '')
     + '<button type="button" class="btn btn-secondary" data-h="'+this.h(R.d_edit)+'"><i class="ph ph-pencil-simple"></i>Edit</button>'
     + '<button type="button" class="btn btn-icon btn-secondary" data-h="'+this.h(R.d_del)+'" aria-label="Delete item" style="margin-left:auto"><i class="ph ph-trash"></i></button>'
     + '</div>';
-  out += '<div style="display:flex;align-items:center;gap:4px;padding:2px 0">'
+  if(R.d_hasLotParent) out += '<button type="button" class="btn btn-ghost" data-h="'+this.h(R.d_lotParent.open)+'" style="align-self:flex-start;font-size:12px"><i class="ph ph-stack"></i>Part of lot: '+esc(R.d_lotParent.title)+'</button>';
+  if(R.d_showStepper) out += '<div style="display:flex;align-items:center;gap:4px;padding:2px 0">'
     + R.d_steps.map(sp=>'<div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0"><div style="width:19px;height:19px;flex:none;border-radius:50%;border:1.5px solid '+sp.bd+';background:'+sp.bg+';display:grid;place-items:center">'+(sp.done?'<i class="ph ph-check" style="font-size:10px;color:var(--color-accent-200)"></i>':'')+'</div><span style="font-size:10.5px;color:'+sp.fg+';white-space:nowrap">'+esc(sp.label)+'</span><div style="flex:1;height:1px;background:var(--color-divider);min-width:6px"></div></div>').join('')
     + '</div>';
+  if(R.d_splitOpen){
+    out += '<div class="card elev-md" style="gap:var(--space-2)"><span class="card-kicker">Split into parts</span>'
+      + '<p class="text-muted" style="margin:0;font-size:11.5px">Each part becomes its own listing, carrying its share of the purchase price and trip cost. '+esc(R.sp_tripLine)+'</p>';
+    R.sp_parts.forEach(p => {
+      out += '<div style="display:flex;gap:8px;align-items:center">'
+        + '<input class="input" placeholder="Part name — e.g. Dumbbells" value="'+esc(p.title)+'" data-bind="'+esc(p.bindT)+'" data-h="'+this.h(p.setTitle)+'">'
+        + '<input class="input" type="number" placeholder="0" style="flex:0 0 92px" value="'+esc(p.cost)+'" data-bind="'+esc(p.bindC)+'" data-h="'+this.h(p.setCost)+'">'
+        + (p.canDel ? '<button type="button" class="btn btn-icon btn-ghost" data-h="'+this.h(p.del)+'" aria-label="Remove part" style="width:28px;height:28px;flex:none"><i class="ph ph-x" style="font-size:13px"></i></button>' : '<span style="width:28px;flex:none"></span>')
+        + '</div>';
+    });
+    out += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      + '<button type="button" class="btn btn-ghost" data-h="'+this.h(R.sp_add)+'" style="font-size:12.5px"><i class="ph ph-plus"></i>Add part</button>'
+      + '<button type="button" class="btn btn-ghost" data-h="'+this.h(R.sp_even)+'" style="font-size:12.5px"><i class="ph ph-equals"></i>Split cost evenly</button>'
+      + '<span style="margin-left:auto;font-size:11.5px;color:'+(R.sp_sumOk?'var(--color-accent-300)':this.WARN())+'">'+esc(R.sp_sumLine)+'</span>'
+      + '</div>'
+      + '<div style="display:flex;gap:8px"><button type="button" class="btn btn-primary" data-h="'+this.h(R.sp_confirm)+'"><i class="ph ph-arrows-split"></i>Create the parts</button><button type="button" class="btn btn-ghost" data-h="'+this.h(R.sp_cancel)+'">Cancel</button></div>'
+      + '</div>';
+  }
+  if(R.d_isLot){
+    out += '<div class="card elev-sm" style="gap:var(--space-3)"><span class="card-kicker">Lot performance</span>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">'
+      + R.d_lotStats.map(x=>'<div><div class="text-muted" style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase">'+esc(x.k)+'</div><div style="font-size:19px;font-weight:500;margin-top:2px;color:'+(x.tone||'inherit')+'">'+esc(x.v)+'</div><div class="text-muted" style="font-size:11px">'+esc(x.sub)+'</div></div>').join('')
+      + '</div></div>';
+    out += '<div class="card elev-sm" style="gap:var(--space-1)"><span class="card-kicker" style="margin-bottom:4px">Parts</span>';
+    R.d_lotParts.forEach(p => {
+      out += '<button type="button" data-h="'+this.h(p.open)+'" style="display:flex;align-items:center;gap:10px;padding:7px 4px;background:none;border:none;cursor:pointer;color:inherit;text-align:left;border-radius:var(--radius-sm)" class="ftp-hover-tint">'
+        + '<span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.title)+'</span>'
+        + '<span class="'+p.statusCls+'" style="font-size:10px;flex:none">'+esc(p.statusLabel)+'</span>'
+        + '<span style="flex:none;text-align:right"><span style="display:block;font-size:13px;font-weight:500;color:'+p.tone+'">'+esc(p.right)+'</span><span class="text-muted" style="display:block;font-size:10px">'+esc(p.sub2)+'</span></span>'
+        + '</button>';
+    });
+    out += '</div>';
+  }
   if(R.d_sellOpen){
     out += '<div class="card elev-md" style="gap:var(--space-2)"><span class="card-kicker">Mark sold</span>'
       + '<div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">'+R.d_sRows.map(f=>this.fieldHTML(f)).join('')

@@ -90,7 +90,10 @@ App.prototype.vItems = function(L,s,d,econ){
     else if(S.sortBy==='profit') rows = rows.slice().sort((a,b)=>{ const va = econ(a), vb = econ(b); const na = va.net!=null?va.net:(va.proj!=null?va.proj:-1e9), nb = vb.net!=null?vb.net:(vb.proj!=null?vb.proj:-1e9); return nb-na; });
     else if(S.sortBy==='days') rows = rows.slice().sort((a,b)=>(econ(b).daysListed||0)-(econ(a).daysListed||0));
     else rows = rows.slice().sort((a,b)=>this.itemDate(b).localeCompare(this.itemDate(a)));
+    const lotKids = {}; d.items.forEach(x => { if(x.lotId){ (lotKids[x.lotId] = lotKids[x.lotId]||[]).push(x); } });
     out.it_rows = rows.map(it => { const ec = econ(it); let r1='', r2='', tone='inherit';
+      if(it.isLot){ const kids = lotKids[it.id]||[]; const soldN = kids.filter(k=>k.status==='sold').length; r1 = M0(it.lotCost); r2 = soldN+'/'+kids.length+' parts sold';
+        return {id:it.id, open:this.openDetail(it.id), icon:'ph ph-stack', title:it.title, statusLabel:'Lot', statusCls:'tag tag-accent-2', meta:[it.cat, it.platform, L.fmtDate(this.itemDate(it))].filter(Boolean).join(' · '), r1, r2, tone}; }
       if(it.status==='sold'){ r1 = (ec.net>=0?'+':'')+M0(ec.net); tone = ec.net>=0?this.GOOD():this.BAD(); r2 = 'sold '+M0(it.soldPrice); }
       else if(it.status==='listed'){ r1 = M0(it.listPrice); r2 = (ec.proj!=null?'proj '+(ec.proj>=0?'+':'')+M0(ec.proj)+' · ':'')+(ec.daysListed!=null?ec.daysListed+'d listed':''); }
       else if(it.status==='purchased'){ r1 = M0(it.purchasePrice); r2 = ec.invested!=null?'in '+M0(ec.invested):''; }
@@ -108,13 +111,14 @@ App.prototype.vDetail = function(L,s,d,econ){
     const it = S.detailId ? d.items.find(x=>x.id===S.detailId) : null;
     if(!it) return {d_open:false};
     const ec = econ(it); const out = {d_open:true};
-    out.d_close = ()=>this.setState({detailId:null, sellD:null});
-    out.d_title = it.title; out.d_statusLabel = this.statusLabel(it.status); out.d_statusCls = this.statusCls(it.status);
+    out.d_close = ()=>this.setState({detailId:null, sellD:null, splitD:null});
+    out.d_title = it.title; out.d_statusLabel = it.isLot ? 'Lot' : this.statusLabel(it.status); out.d_statusCls = it.isLot ? 'tag tag-accent-2' : this.statusCls(it.status);
     out.d_meta = [it.cat, it.platform, it.condition].filter(Boolean).join(' · ');
     out.d_hasUrl = !!it.url; out.d_url = it.url;
     out.d_hasAddr = !!it.pickupAddress; out.d_addr = it.pickupAddress||''; out.d_navHref = this.navHref(it.pickupAddress);
     const rowsM = [];
-    if(it.status==='watching'){ if(it.ask!=null) rowsM.push({k:'Asking price', v:M0(it.ask)}); if(it.target!=null) rowsM.push({k:'Target price', v:M0(it.target)}); }
+    if(it.isLot){ rowsM.push({k:'Lot purchase price', v:M(it.lotCost), sub:L.fmtDate(it.purchaseDate)}); }
+    else if(it.status==='watching'){ if(it.ask!=null) rowsM.push({k:'Asking price', v:M0(it.ask)}); if(it.target!=null) rowsM.push({k:'Target price', v:M0(it.target)}); }
     else { rowsM.push({k:'Purchase price', v:M(it.purchasePrice), sub:L.fmtDate(it.purchaseDate)}); }
     if(ec.tripTotal>0) rowsM.push({k:'Trip costs', v:'−'+M(ec.tripTotal)});
     if(it.status==='listed'||it.status==='sold'){ rowsM.push({k:'Listed at', v:M0(it.listPrice), sub:(it.listDate?L.fmtDate(it.listDate)+' · ':'')+(ec.daysListed!=null?ec.daysListed+' days':'')}); }
@@ -136,8 +140,46 @@ App.prototype.vDetail = function(L,s,d,econ){
     out.d_mkShow = !!r && (!it.pickup || it.pickup.miles==null || it.pickup.est);
     if(r){ out.d_mkLine = 'Apple route: '+r.miles+' mi · '+r.min+' min one-way'; out.d_mkApply = ()=>{ this.save(dd=>{ const x = dd.items.find(y=>y.id===it.id); if(x){ x.pickup = Object.assign({}, x.pickup, {miles:r.miles, min:r.min}); delete x.pickup.est; } }); this.toastMsg('Route applied'); }; }
     const ORDER = ['watching','purchased','listed','sold']; const cur = ORDER.indexOf(it.status);
+    out.d_showStepper = !it.isLot;
     out.d_steps = ORDER.map((k,i) => ({label:this.statusLabel(k), on:i===cur, done:i<cur, fg:i<=cur?'var(--color-accent)':'color-mix(in srgb, var(--color-text) 40%, transparent)', bd:i<=cur?'var(--color-accent)':'var(--color-divider)', bg:i<cur?'var(--color-accent-800)':'transparent'}));
-    out.d_canAdv = it.status!=='sold' && !S.sellD;
+    out.d_canAdv = it.status!=='sold' && !S.sellD && !it.isLot;
+    // ——— lot rollup (parent) ———
+    out.d_isLot = !!it.isLot;
+    if(it.isLot){
+      const kids = d.items.filter(x=>x.lotId===it.id);
+      const kecs = kids.map(k=>({k, e:econ(k)}));
+      const soldN = kecs.filter(x=>x.k.status==='sold').length;
+      const outlay = (it.lotCost||0) + ec.tripTotal;
+      const recovered = kecs.filter(x=>x.k.status==='sold').reduce((a,x)=>a+((x.k.soldPrice||0)-x.e.fees),0);
+      const lotNet = recovered - outlay;
+      out.d_lotStats = [
+        {k:'Lot outlay', v:M(outlay), sub:'purchase + trip'},
+        {k:'Recovered so far', v:M(recovered), sub:soldN+' of '+kids.length+' parts sold, after fees'},
+        {k:'Lot net', v:(lotNet>=0?'+':'')+M(lotNet), tone:lotNet>=0?this.GOOD():this.BAD(), sub:lotNet>=0?'past break-even':'to break even: sell '+M(-lotNet)+' more'},
+        {k:'Listed value remaining', v:M(kecs.filter(x=>x.k.status!=='sold').reduce((a,x)=>a+(x.k.listPrice||0),0)), sub:(kids.length-soldN)+' parts unsold'}
+      ];
+      out.d_lotParts = kecs.map(x => { const k = x.k, e2 = x.e; let right='', tone='inherit', sub2='';
+        if(k.status==='sold'){ right = (e2.net>=0?'+':'')+M0(e2.net); tone = e2.net>=0?this.GOOD():this.BAD(); sub2 = 'sold '+M0(k.soldPrice); }
+        else if(k.status==='listed'){ right = M0(k.listPrice); sub2 = e2.daysListed!=null ? e2.daysListed+'d listed' : ''; }
+        else { right = M0(k.purchasePrice); sub2 = 'allocated cost'; }
+        return {title:k.title, statusLabel:this.statusLabel(k.status), statusCls:this.statusCls(k.status), right, tone, sub2, open:this.openDetail(k.id)}; });
+    }
+    // ——— lot child link ———
+    const lotParent = it.lotId ? d.items.find(x=>x.id===it.lotId) : null;
+    out.d_hasLotParent = !!lotParent;
+    if(lotParent) out.d_lotParent = {title:lotParent.title, open:this.openDetail(lotParent.id)};
+    // ——— split editor ———
+    out.d_splitShow = it.status==='purchased' && !it.isLot && !S.sellD && !(S.splitD && S.splitD.parentId===it.id);
+    out.d_split = this.openSplit(it.id);
+    const spd = S.splitD; out.d_splitOpen = !!spd && spd.parentId===it.id;
+    if(out.d_splitOpen){
+      out.sp_parts = spd.parts.map((p,i)=>({title:p.title, cost:p.cost, setTitle:this.splitSetPart(i,'title'), setCost:this.splitSetPart(i,'cost'), del:this.splitDelPart(i), bindT:'splitD.'+i+'.title', bindC:'splitD.'+i+'.cost', canDel:spd.parts.length>2}));
+      out.sp_add = this.splitAddPart(); out.sp_even = this.splitEven(); out.sp_confirm = this.confirmSplit(); out.sp_cancel = this.cancelSplit();
+      const sum = spd.parts.reduce((a,p)=>a+(L.num(p.cost)||0),0);
+      out.sp_sumLine = 'Allocated '+M(sum)+' of '+M(it.purchasePrice||0);
+      out.sp_sumOk = Math.abs(sum-(it.purchasePrice||0))<=0.02;
+      out.sp_tripLine = ec.pt ? 'The '+M(ec.pt.total)+' trip cost splits in the same proportions.' : 'No trip cost recorded on this purchase.';
+    }
     out.d_advLabel = {watching:'Mark purchased', purchased:'Mark listed', listed:'Mark sold…'}[it.status]||'';
     out.d_advance = this.advance(it.id);
     const sd = S.sellD; out.d_sellOpen = !!sd;
@@ -153,7 +195,7 @@ App.prototype.vDetail = function(L,s,d,econ){
     }
     out.d_checklist = ['Facebook Marketplace','OfferUp','eBay','Craigslist'].map(p => { const fp = s.feePresets.find(f=>f.name.toLowerCase().startsWith(p.split(' ')[0].toLowerCase())); const on = (it.listedOn||[]).includes(p);
       return {name:p, on, toggle:this.toggleListed(it.id,p), fee: fp?(fp.pct+'% fees'):'', bd:on?'var(--color-accent)':'var(--color-divider)', fg:on?'var(--color-accent)':'inherit', icon:on?'ph-fill ph-check-square':'ph ph-square'}; });
-    out.d_showChecklist = it.status==='purchased'||it.status==='listed';
+    out.d_showChecklist = (it.status==='purchased'||it.status==='listed') && !it.isLot;
     out.d_renewShow = it.status==='listed' && (it.listedOn||[]).includes('Facebook Marketplace');
     out.d_renewLabel = 'Log FB renewal'+(it.renewedDate?' (last '+L.fmtDate(it.renewedDate)+')':'');
     out.d_renew = this.renew(it.id);
