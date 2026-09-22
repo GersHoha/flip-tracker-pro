@@ -28,6 +28,7 @@ class App {
     this.mq.addEventListener('change', this.onMq);
     this.boot();
     this.render();
+    this.checkShareLink();
     setTimeout(() => { if(this.state.mq !== this.mq.matches) this.setState({mq:this.mq.matches}); }, 50);
   }
   boot(){
@@ -208,6 +209,33 @@ class App {
     this.setState({edit:e, detailId:null, quick:'', quickNote:'', lookupNote:''});
   }; }
   closeEdit(){ return () => this.setState({edit:null}); }
+  // ——— share-link import: ?add=<listing text> and/or ?title=&ask=&addr=&url=&platform= ———
+  checkShareLink(){
+    try{
+      const q = new URLSearchParams(location.search);
+      const raw = q.get('add');
+      const hasStruct = q.get('title') || q.get('ask') || q.get('addr');
+      if(!raw && !hasStruct) return;
+      history.replaceState(null, '', location.pathname);
+      const L = this.L();
+      const p = raw ? L.parseListing(raw) : {title:'', ask:null, address:'', platform:'', url:''};
+      const pre = {status:'watching'};
+      const title = q.get('title') || p.title; if(title) pre.title = title;
+      const ask = L.num(q.get('ask')); if(ask!=null) pre.ask = String(ask); else if(p.ask!=null) pre.ask = String(p.ask);
+      const addr = q.get('addr') || p.address; if(addr) pre.address = addr;
+      const url2 = q.get('url') || p.url; if(url2) pre.url = url2;
+      const plat = q.get('platform') || p.platform; if(plat) pre.platform = plat;
+      this.openEdit(null, pre)();
+      this.setState({quick: raw||'', quickNote:'Imported from link — review the fields and save.'});
+    }catch(e){}
+  }
+  pasteQuick(){ return async () => {
+    try{
+      const t = await navigator.clipboard.readText();
+      if(!t || !t.trim()){ this.toastMsg('Clipboard is empty'); return; }
+      this.setState({quick:t}, () => this.parseQuick()());
+    }catch(e){ this.toastMsg('Paste not allowed — long-press the box and paste instead'); }
+  }; }
   parseQuick(){ return () => { const L = this.L(); const p = L.parseListing(this.state.quick); if(!p.title && p.ask==null && !p.address){ this.setState({quickNote:'Couldn’t parse anything — fill the fields below manually.'}); return; }
     this.setState(s => ({edit:Object.assign({}, s.edit, {title:p.title||s.edit.title, ask:p.ask!=null?String(p.ask):s.edit.ask, address:p.address||s.edit.address, platform:p.platform||s.edit.platform, url:p.url||s.edit.url, status:'watching'}), quickNote:'Parsed: '+[p.title?'title':null, p.ask!=null?'price':null, p.address?'location':null].filter(Boolean).join(', ')+'. Review below.'}));
   }; }

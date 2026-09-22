@@ -97,7 +97,7 @@ App.prototype.tplEdit = function(R){
   if(R.e_showQuick){
     out += '<div class="card elev-sm" style="gap:var(--space-2);background:var(--color-accent-900)"><span class="card-kicker">Quick add — paste a listing</span>'
       + '<textarea class="input" style="min-height:64px;font-size:12px" placeholder="Paste a copied Facebook Marketplace listing (URL or text) — title, price and town get parsed out." data-bind="quick" data-h="'+this.h(R.e_setQuick)+'">'+esc(R.e_quick)+'</textarea>'
-      + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button type="button" class="btn btn-primary" data-h="'+this.h(R.e_parseQuick)+'" style="font-size:12.5px"><i class="ph ph-magic-wand"></i>Parse it</button>'+(R.e_hasQuickNote?'<span style="font-size:11.5px;color:var(--color-accent-300)">'+esc(R.e_quickNote)+'</span>':'')+'</div>'
+      + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button type="button" class="btn btn-primary" data-h="'+this.h(R.e_pasteQuick)+'" style="font-size:12.5px"><i class="ph ph-clipboard-text"></i>Paste &amp; parse</button><button type="button" class="btn btn-ghost" data-h="'+this.h(R.e_parseQuick)+'" style="font-size:12.5px"><i class="ph ph-magic-wand"></i>Parse it</button>'+(R.e_hasQuickNote?'<span style="font-size:11.5px;color:var(--color-accent-300)">'+esc(R.e_quickNote)+'</span>':'')+'</div>'
       + '</div>';
   }
   out += '<div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">'

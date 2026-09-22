@@ -215,7 +215,7 @@ App.prototype.vEdit = function(L,s,d){
     out.e_close = this.closeEdit(); out.e_save = this.saveItem();
     out.e_showQuick = !e.id;
     out.e_quick = S.quick; out.e_setQuick = ev=>this.setState({quick:ev.target.value});
-    out.e_parseQuick = this.parseQuick(); out.e_quickNote = S.quickNote; out.e_hasQuickNote = !!S.quickNote;
+    out.e_parseQuick = this.parseQuick(); out.e_pasteQuick = this.pasteQuick(); out.e_quickNote = S.quickNote; out.e_hasQuickNote = !!S.quickNote;
     out.e_rowsTop = [B(this.fld('Title', e.title, eset('title'), 'text', 'Peloton Bike+', '100%'),'edit.title')];
     out.e_cat = e.cat; out.e_setCat = eset('cat'); out.e_cats = s.categories.map(c=>({v:c,label:c}));
     out.e_plat = e.platform; out.e_setPlat = eset('platform'); out.e_plats = L.PLATFORMS.map(p=>({v:p,label:p}));
