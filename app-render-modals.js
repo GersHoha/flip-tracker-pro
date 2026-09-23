@@ -109,7 +109,8 @@ App.prototype.tplEdit = function(R){
   if(R.e_isWatch) out += '<div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">'+R.e_rowsWatch.map(f=>this.fieldHTML(f)).join('')+'</div>';
   if(R.e_showBuy) out += '<div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">'+R.e_rowsBuy.map(f=>this.fieldHTML(f)).join('')+'</div>';
   out += '<div class="card elev-sm" style="gap:var(--space-2)"><span class="card-kicker">Pickup trip</span>'
-    + '<div class="field"><label>Pickup address</label><div style="display:flex;gap:8px"><input class="input" placeholder="437 Main St, Doylestown, PA" value="'+esc(R.e_addr)+'" data-bind="edit.address" data-h="'+this.h(R.e_setAddr)+'"><button type="button" class="btn btn-primary" data-h="'+this.h(R.e_lookup)+'" style="flex:none"><i class="ph ph-map-pin"></i>Find route</button></div></div>'
+    + '<div class="field"><label>Pickup address — or a pasted Apple/Google Maps link</label><div style="display:flex;gap:8px"><input class="input" placeholder="437 Main St, Doylestown, PA" value="'+esc(R.e_addr)+'" data-bind="edit.address" data-h="'+this.h(R.e_setAddr)+'"><button type="button" class="btn btn-primary" data-h="'+this.h(R.e_lookup)+'" style="flex:none"><i class="ph ph-map-pin"></i>Find route</button></div></div>'
+    + '<button type="button" class="btn btn-ghost" data-h="'+this.h(R.e_pasteMaps)+'" style="align-self:flex-start;font-size:12px"><i class="ph ph-link"></i>Paste Maps link from clipboard</button>'
     + (R.e_hasLookupNote ? '<p style="margin:0;font-size:11.5px;color:var(--color-accent-300)">'+esc(R.e_lookupNote)+'</p>' : '')
     + '<div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">'+R.e_rowsTrip.map(f=>this.fieldHTML(f)).join('')
     + '<div class="field" style="flex:1 1 30%"><label>Toll presets</label>'+this.selectHTML(R.e_tollOpts, '', R.e_applyToll)+'</div></div>'

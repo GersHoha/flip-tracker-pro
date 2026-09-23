@@ -102,6 +102,28 @@ const parseListing = raw => {
   return out;
 };
 
+// — Maps-link parser: pull coordinates + address out of a shared Apple/Google Maps link (or bare "lat, lng") —
+const parseMapsLink = raw => {
+  if(!raw) return null;
+  const t = String(raw).trim();
+  let dec = t; try{ dec = decodeURIComponent(t); }catch(e){}
+  const both = t + '\n' + dec;
+  const pick = (re, src) => { const m = src.match(re); if(!m) return null; const lat = parseFloat(m[1]), lng = parseFloat(m[2]); if(isNaN(lat)||isNaN(lng)||Math.abs(lat)>90||Math.abs(lng)>180||(lat===0&&lng===0)) return null; return {lat, lng}; };
+  const coords = pick(/[?&](?:s?ll|coordinate|center)=(-?\d{1,2}\.\d+)(?:%2C|,)\s*(-?\d{1,3}\.\d+)/i, t)
+    || pick(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/, both)
+    || pick(/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/, both)
+    || pick(/[?&](?:q|daddr|destination)=(-?\d{1,2}\.\d+)(?:%2C|,)(-?\d{1,3}\.\d+)/i, t)
+    || (!/https?:/i.test(t) ? pick(/^(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)$/, t) : null);
+  let address = '';
+  const q = k => { const m = t.match(new RegExp('[?&]'+k+'=([^&#]+)','i')); if(!m) return ''; try{ return decodeURIComponent(m[1].replace(/\+/g,' ')).trim(); }catch(e){ return m[1].replace(/\+/g,' ').trim(); } };
+  address = q('address') || q('daddr') || q('name');
+  if(!address){ const qq = q('q'); if(qq && !/^-?\d/.test(qq)) address = qq; }
+  if(!address){ const m = t.match(/\/maps\/place\/([^\/@?]+)/i); if(m){ try{ address = decodeURIComponent(m[1].replace(/\+/g,' ')); }catch(e){ address = m[1].replace(/\+/g,' '); } } }
+  const shortLink = /maps\.app\.goo\.gl|goo\.gl\/maps/i.test(t) && !coords;
+  if(!coords && !address && !shortLink) return null;
+  return {coords, address, shortLink};
+};
+
 // — CSV / download —
 const csvCell = v => { const s = v==null?'':String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
 const toCSV = rows => rows.map(r => r.map(csvCell).join(',')).join('\r\n');
@@ -169,5 +191,5 @@ const DEMO = () => {
 const BLANK = () => ({items:[], runs:[], expenses:[], payouts:[], templates: DEMO().templates.map(t=>({...t, demo:false})), tollPresets:[], opsDone:{}});
 const SEED = () => Object.assign({settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), opsDone:{}}, DEMO());
 
-window.FTP = {uid, iso, daysAgo, todayISO, money, money0, fmtDate, monthKey, monthLabel, daysBetween, clamp, num, HAV, estMiles, estMin, nnOrder, tripCost, pickupTrip, deliveryTrip, feeAmt, itemEcon, mileageLog, rangePnl, monthRange, quarterRange, parseListing, toCSV, download, PLATFORMS, STATUS, EXP_CATS, DEFAULT_SETTINGS, DEMO, SEED, BLANK};
+window.FTP = {uid, iso, daysAgo, todayISO, money, money0, fmtDate, monthKey, monthLabel, daysBetween, clamp, num, HAV, estMiles, estMin, nnOrder, tripCost, pickupTrip, deliveryTrip, feeAmt, itemEcon, mileageLog, rangePnl, monthRange, quarterRange, parseListing, parseMapsLink, toCSV, download, PLATFORMS, STATUS, EXP_CATS, DEFAULT_SETTINGS, DEMO, SEED, BLANK};
 })();

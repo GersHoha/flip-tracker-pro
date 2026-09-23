@@ -6,7 +6,8 @@ App.prototype.tplEvaluate = function(R){
   let out = '<section data-screen-label="Deal evaluator" style="display:grid;gap:var(--space-4);grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start">';
   out += '<div class="card elev-sm" style="gap:var(--space-3)"><span class="card-kicker">The deal</span>';
   out += '<div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">'+R.ev_rowsPrice.map(f=>this.fieldHTML(f)).join('')+'</div>';
-  out += '<div class="field"><label>Pickup address</label><div style="display:flex;gap:8px"><input class="input" placeholder="437 Main St, Doylestown, PA" value="'+esc(R.ev_addr)+'" data-bind="evalD.address" data-h="'+this.h(R.ev_setAddr)+'"><button type="button" class="btn btn-primary" data-h="'+this.h(R.ev_lookup)+'" style="flex:none"><i class="ph ph-map-pin"></i>Route</button></div></div>';
+  out += '<div class="field"><label>Pickup address — or a pasted Apple/Google Maps link</label><div style="display:flex;gap:8px"><input class="input" placeholder="437 Main St, Doylestown, PA" value="'+esc(R.ev_addr)+'" data-bind="evalD.address" data-h="'+this.h(R.ev_setAddr)+'"><button type="button" class="btn btn-primary" data-h="'+this.h(R.ev_lookup)+'" style="flex:none"><i class="ph ph-map-pin"></i>Route</button></div></div>';
+  out += '<button type="button" class="btn btn-ghost" data-h="'+this.h(R.ev_pasteMaps)+'" style="align-self:flex-start;font-size:12px"><i class="ph ph-link"></i>Paste Maps link from clipboard</button>';
   if(R.ev_hasNote) out += '<p style="margin:0;font-size:11.5px;color:var(--color-accent-300)">'+esc(R.ev_note)+'</p>';
   out += '<div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">'+R.ev_rowsTrip.map(f=>this.fieldHTML(f)).join('')
     + '<div class="field" style="flex:1 1 30%"><label>Toll presets</label>'+this.selectHTML(R.ev_tollOpts, '', R.ev_applyToll)+'</div></div>';

@@ -233,7 +233,7 @@ App.prototype.vEdit = function(L,s,d){
     out.e_rowsWatch = [B(this.fld('Asking price $', e.ask, eset('ask'), 'number','340','46%'),'edit.ask'), B(this.fld('Target price $', e.target, eset('target'), 'number','290','46%'),'edit.target')];
     out.e_rowsBuy = [B(this.fld('Purchase price $', e.purchasePrice, eset('purchasePrice'), 'number','450','30%'),'edit.purchasePrice'), B(this.fld('Purchase date', e.purchaseDate, eset('purchaseDate'), 'date','','30%'),'edit.purchaseDate'), B(this.fld('Pickup scheduled', e.pickupDate, eset('pickupDate'), 'date','','30%'),'edit.pickupDate')];
     out.e_addr = e.address; out.e_setAddr = eset('address');
-    out.e_lookup = this.lookupEdit(); out.e_lookupNote = S.lookupNote; out.e_hasLookupNote = !!S.lookupNote;
+    out.e_lookup = this.lookupEdit(); out.e_pasteMaps = this.pasteMaps('edit'); out.e_lookupNote = S.lookupNote; out.e_hasLookupNote = !!S.lookupNote;
     out.e_rowsTrip = [B(this.fld('One-way miles', e.miles, eset('miles'), 'number','12.5','30%'),'edit.miles'), B(this.fld('Drive min (1-way)', e.min, eset('min'), 'number','22','30%'),'edit.min'), B(this.fld('Tolls $ (RT)', e.tolls, eset('tolls'), 'number','0','30%'),'edit.tolls')];
     out.e_tollOpts = [{v:'',label:'Toll preset…'}].concat(this.vd().tollPresets.map(t=>({v:t.id, label:t.name+' — '+L.money(t.amount)})));
     out.e_applyToll = this.applyTollEdit();
@@ -257,7 +257,7 @@ App.prototype.vEval = function(L,s,d){
     const B = (f, bind) => Object.assign(f, {bind});
     out.ev_rowsPrice = [B(this.fld('Asking price $', ev.ask, evset('ask'), 'number','200','46%'),'evalD.ask'), B(this.fld('I can negotiate to $', ev.target, evset('target'), 'number','160','46%'),'evalD.target')];
     out.ev_addr = ev.address; out.ev_setAddr = evset('address');
-    out.ev_lookup = this.lookupEval(); out.ev_note = S.evalNote; out.ev_hasNote = !!S.evalNote;
+    out.ev_lookup = this.lookupEval(); out.ev_pasteMaps = this.pasteMaps('eval'); out.ev_note = S.evalNote; out.ev_hasNote = !!S.evalNote;
     out.ev_rowsTrip = [B(this.fld('One-way miles', ev.miles, evset('miles'), 'number','9','30%'),'evalD.miles'), B(this.fld('Drive min (1-way)', ev.min, evset('min'), 'number','16','30%'),'evalD.min'), B(this.fld('Tolls $ (RT)', ev.tolls, evset('tolls'), 'number','0','30%'),'evalD.tolls')];
     out.ev_tollOpts = [{v:'',label:'Toll preset…'}].concat(this.vd().tollPresets.map(t=>({v:t.id, label:t.name+' — '+M(t.amount)})));
     out.ev_applyToll = this.applyToll('evalD');

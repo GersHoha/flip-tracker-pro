@@ -201,7 +201,7 @@ class App {
   dset(draft, k, kind){ return e => { const v = kind==='check' ? e.target.checked : e.target.value; this.setState(s => { const o = Object.assign({}, s[draft]); o[k] = v; const out = {}; out[draft] = o; return out; }); }; }
   sset(k, isNum){ return e => { const raw = e.target.value; this.save(d => { d.settings[k] = isNum ? (this.L().num(raw) ?? 0) : raw; }); }; }
   // ——— items ———
-  blankEdit(){ const L = this.L(); return {id:null, title:'', cat:this.st().categories[0]||'Other', platform:'Facebook Marketplace', status:'watching', ask:'', target:'', purchasePrice:'', purchaseDate:L.todayISO(), pickupDate:'', address:'', miles:'', min:'', tolls:'', rental:'', rentalGas:'', listPrice:'', listDate:'', soldPrice:'', soldDate:'', soldPlatform:'Facebook Marketplace', feePct:'0', delivered:false, delAddress:'', delMiles:'', delTolls:'', condition:'', notes:'', url:'', coords:null, listedOn:[]}; }
+  blankEdit(){ const L = this.L(); return {id:null, title:'', cat:this.st().categories[0]||'Other', platform:'Facebook Marketplace', status:'watching', ask:'', target:'', purchasePrice:'', purchaseDate:L.todayISO(), pickupDate:'', address:'', miles:'', min:'', tolls:'', rental:'', rentalGas:'', listPrice:'', listDate:'', soldPrice:'', soldDate:'', soldPlatform:'Facebook Marketplace', feePct:'0', delivered:false, delAddress:'', delMiles:'', delTolls:'', condition:'', notes:'', url:'', coords:null, listedOn:[], est:null}; }
   openEdit(id, prefill){ return () => {
     let e = this.blankEdit();
     if(id){ const it = this.vd().items.find(x=>x.id===id); if(it){ e = Object.assign(e, {id:it.id, title:it.title, cat:it.cat, platform:it.platform||'Facebook Marketplace', status:it.status, ask:it.ask??'', target:it.target??'', purchasePrice:it.purchasePrice??'', purchaseDate:it.purchaseDate||'', pickupDate:it.pickupDate||'', address:it.pickupAddress||'', miles:(it.pickup&&it.pickup.miles!=null)?String(it.pickup.miles):'', min:(it.pickup&&it.pickup.min!=null)?String(it.pickup.min):'', tolls:(it.pickup&&it.pickup.tolls)?String(it.pickup.tolls):'', rental:(it.pickup&&it.pickup.rental)?String(it.pickup.rental):'', rentalGas:(it.pickup&&it.pickup.rentalGas)?String(it.pickup.rentalGas):'', listPrice:it.listPrice??'', listDate:it.listDate||'', soldPrice:it.soldPrice??'', soldDate:it.soldDate||'', soldPlatform:it.soldPlatform||'Facebook Marketplace', feePct:String(it.feePct||0), delivered:!!it.delivered, delAddress:(it.delivery&&it.delivery.address)||'', delMiles:(it.delivery&&it.delivery.miles!=null)?String(it.delivery.miles):'', delTolls:(it.delivery&&it.delivery.tolls)?String(it.delivery.tolls):'', condition:it.condition||'', notes:it.notes||'', url:it.url||'', coords:it.coords||null, listedOn:(it.listedOn||[]).slice()}); } }
@@ -240,12 +240,36 @@ class App {
     this.setState(s => ({edit:Object.assign({}, s.edit, {title:p.title||s.edit.title, ask:p.ask!=null?String(p.ask):s.edit.ask, address:p.address||s.edit.address, platform:p.platform||s.edit.platform, url:p.url||s.edit.url, status:'watching'}), quickNote:'Parsed: '+[p.title?'title':null, p.ask!=null?'price':null, p.address?'location':null].filter(Boolean).join(', ')+'. Review below.'}));
   }; }
   lookupEdit(){ return async () => {
-    const e = this.state.edit; if(!e.address){ this.setState({lookupNote:'Enter a pickup address first.'}); return; }
-    if(!this.mapReady()){ this.setState({lookupNote:'No MapKit token — enter miles manually, or add a token in Settings.'}); return; }
+    const L = this.L(); const s = this.st(); const e = this.state.edit;
+    if(!e.address){ this.setState({lookupNote:'Enter a pickup address — or paste an Apple/Google Maps link (Maps → Share → Copy Link).'}); return; }
+    const pl = L.parseMapsLink(e.address);
+    if(pl && pl.shortLink){ this.setState({lookupNote:'That short Google link doesn’t carry the location. Use Apple Maps → Share → Copy Link, or copy the full google.com/maps URL from a browser.'}); return; }
+    if(pl && pl.coords){
+      const addr = pl.address || (pl.coords.lat.toFixed(5)+', '+pl.coords.lng.toFixed(5));
+      if(this.mapReady()){
+        this.setState({lookupNote:'Looking up route…'});
+        try{ const r = await this.route(s.homeCoords, pl.coords);
+          this.setState(st => ({edit:Object.assign({}, st.edit, {coords:pl.coords, address:addr, miles:String(r.miles), min:String(r.min), est:false}), lookupNote:'Route found: '+r.miles+' mi · '+r.min+' min one-way'}));
+          return;
+        }catch(err){ /* fall back to the estimate below */ }
+      }
+      const mi = L.estMiles(s.homeCoords, pl.coords); const mn = L.estMin(mi);
+      this.setState(st => ({edit:Object.assign({}, st.edit, {coords:pl.coords, address:addr, miles:mi!=null?String(mi):st.edit.miles, min:mn!=null?String(mn):st.edit.min, est:true}), lookupNote:'From the Maps pin: ~'+mi+' mi · ~'+mn+' min one-way (straight-line ×1.28) — tweak if you know better.'}));
+      return;
+    }
+    if(!this.mapReady()){ this.setState({lookupNote:'No MapKit token — paste an Apple/Google Maps link here instead (share the place → Copy Link), or enter miles manually.'}); return; }
     this.setState({lookupNote:'Looking up route…'});
-    try{ const c = await this.geocode(e.address); const r = await this.route(this.st().homeCoords, c);
-      this.setState(s => ({edit:Object.assign({}, s.edit, {coords:{lat:c.lat,lng:c.lng}, miles:String(r.miles), min:String(r.min)}), lookupNote:'Route found: '+r.miles+' mi · '+r.min+' min one-way ('+c.formatted+')'}));
-    }catch(err){ this.setState({lookupNote: err && err.ftpTimeout ? 'Route lookup timed out — your MapKit token may be invalid (check Settings). Enter miles manually meanwhile.' : 'Couldn’t geocode that address — check it or enter miles manually.'}); }
+    try{ const c = await this.geocode(e.address); const r = await this.route(s.homeCoords, c);
+      this.setState(st => ({edit:Object.assign({}, st.edit, {coords:{lat:c.lat,lng:c.lng}, miles:String(r.miles), min:String(r.min), est:false}), lookupNote:'Route found: '+r.miles+' mi · '+r.min+' min one-way ('+c.formatted+')'}));
+    }catch(err){ this.setState({lookupNote: err && err.ftpTimeout ? 'Route lookup timed out — your MapKit token may be invalid (check Settings). Paste a Maps link instead, or enter miles manually.' : 'Couldn’t geocode that address — check it, paste a Maps link, or enter miles manually.'}); }
+  }; }
+  pasteMaps(which){ return async () => {
+    try{
+      const t = await navigator.clipboard.readText();
+      if(!t || !t.trim()){ this.toastMsg('Clipboard is empty'); return; }
+      if(which==='edit') this.setState(s => ({edit:Object.assign({}, s.edit, {address:t.trim()})}), () => this.lookupEdit()());
+      else this.setState(s => ({evalD:Object.assign({}, s.evalD, {address:t.trim()})}), () => this.lookupEval()());
+    }catch(e){ this.toastMsg('Paste not allowed — paste the link into the address box, then tap the route button'); }
   }; }
   saveItem(){ return () => {
     const L = this.L(); const e = this.state.edit; if(!e.title.trim()){ this.toastMsg('Give it a title'); return; }
@@ -257,6 +281,7 @@ class App {
       // keep a run's or lot's allocated trip share unless the user changed the miles themselves
       const exMiles = (ex && ex.pickup && ex.pickup.miles!=null) ? ex.pickup.miles : null;
       if(ex && ex.pickup && (ex.pickup.runId || ex.pickup.alloc!=null) && n(e.miles)===exMiles){ if(ex.pickup.runId) pickup.runId = ex.pickup.runId; pickup.alloc = ex.pickup.alloc; pickup.rtMiles = ex.pickup.rtMiles; if(n(e.min)==null && ex.pickup.min!=null) pickup.min = ex.pickup.min; } else { delete pickup.runId; delete pickup.alloc; delete pickup.rtMiles; }
+      if(e.est===true) pickup.est = true; else if(e.est===false) delete pickup.est;
       base.pickup = pickup;
       base.delivery = e.delivered ? {address:e.delAddress, miles:n(e.delMiles), min:null, tolls:n(e.delTolls)||0} : null;
       if(e.status!=='watching' && !base.purchaseDate) base.purchaseDate = L.todayISO();
@@ -329,12 +354,28 @@ class App {
   }; }
   // ——— evaluator ———
   lookupEval(){ return async () => {
-    const ev = this.state.evalD; if(!ev.address){ this.setState({evalNote:'Enter a pickup address first.'}); return; }
-    if(!this.mapReady()){ this.setState({evalNote:'No MapKit token — enter miles manually, or add a token in Settings.'}); return; }
+    const L = this.L(); const s = this.st(); const ev = this.state.evalD;
+    if(!ev.address){ this.setState({evalNote:'Enter a pickup address — or paste an Apple/Google Maps link.'}); return; }
+    const pl = L.parseMapsLink(ev.address);
+    if(pl && pl.shortLink){ this.setState({evalNote:'That short Google link doesn’t carry the location. Use Apple Maps → Share → Copy Link instead.'}); return; }
+    if(pl && pl.coords){
+      const addr = pl.address || (pl.coords.lat.toFixed(5)+', '+pl.coords.lng.toFixed(5));
+      if(this.mapReady()){
+        this.setState({evalNote:'Looking up route…'});
+        try{ const r = await this.route(s.homeCoords, pl.coords); this.rt.eval = r;
+          this.setState(st => ({evalD:Object.assign({}, st.evalD, {coords:pl.coords, address:addr, miles:String(r.miles), min:String(r.min)}), evalNote:'Route: '+r.miles+' mi · '+r.min+' min one-way'}), ()=>this.populateMap('eval'));
+          return;
+        }catch(err){ /* fall back to the estimate below */ }
+      }
+      const mi = L.estMiles(s.homeCoords, pl.coords); const mn = L.estMin(mi);
+      this.setState(st => ({evalD:Object.assign({}, st.evalD, {coords:pl.coords, address:addr, miles:mi!=null?String(mi):st.evalD.miles, min:mn!=null?String(mn):st.evalD.min}), evalNote:'From the Maps pin: ~'+mi+' mi · ~'+mn+' min one-way (straight-line ×1.28).'}));
+      return;
+    }
+    if(!this.mapReady()){ this.setState({evalNote:'No MapKit token — paste an Apple/Google Maps link here instead, or enter miles manually.'}); return; }
     this.setState({evalNote:'Looking up route…'});
-    try{ const c = await this.geocode(ev.address); const r = await this.route(this.st().homeCoords, c); this.rt.eval = r;
-      this.setState(s => ({evalD:Object.assign({}, s.evalD, {coords:{lat:c.lat,lng:c.lng}, miles:String(r.miles), min:String(r.min)}), evalNote:'Route: '+r.miles+' mi · '+r.min+' min one-way'}), ()=>this.populateMap('eval'));
-    }catch(err){ this.setState({evalNote: err && err.ftpTimeout ? 'Route lookup timed out — your MapKit token may be invalid (check Settings).' : 'Couldn’t geocode that address.'}); }
+    try{ const c = await this.geocode(ev.address); const r = await this.route(s.homeCoords, c); this.rt.eval = r;
+      this.setState(st => ({evalD:Object.assign({}, st.evalD, {coords:{lat:c.lat,lng:c.lng}, miles:String(r.miles), min:String(r.min)}), evalNote:'Route: '+r.miles+' mi · '+r.min+' min one-way'}), ()=>this.populateMap('eval'));
+    }catch(err){ this.setState({evalNote: err && err.ftpTimeout ? 'Route lookup timed out — your MapKit token may be invalid (check Settings). Paste a Maps link instead.' : 'Couldn’t geocode that address — paste a Maps link instead.'}); }
   }; }
   evalCalc(){
     const L = this.L(); const s = this.st(); const ev = this.state.evalD; const n = L.num;
