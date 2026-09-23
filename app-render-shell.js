@@ -46,7 +46,7 @@ App.prototype.tplSidebar = function(R){
 };
 
 App.prototype.tplHeader = function(R){
-  return '<header data-np="1" style="position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:12px 14px;background:color-mix(in srgb, var(--color-bg) 86%, transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--color-divider)">'
+  return '<header data-np="1" style="position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 14px 12px;background:color-mix(in srgb, var(--color-bg) 86%, transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--color-divider)">'
     + '<div style="width:26px;height:26px;flex:none;border:1px solid var(--color-accent);border-radius:8px;display:grid;place-items:center;color:var(--color-accent)"><i class="ph ph-arrows-clockwise" style="font-size:14px"></i></div>'
     + '<div style="font-size:16px;font-weight:600;flex:1">'+esc(R.screenTitle)+'</div>'
     + '<button type="button" class="btn btn-icon btn-secondary" data-h="'+this.h(R.themeToggle)+'" aria-label="Toggle theme"><i class="'+R.themeIcon+'" style="font-size:16px"></i></button>'
