@@ -113,6 +113,8 @@ App.prototype.tplEdit = function(R){
     + (R.e_hasLookupNote ? '<p style="margin:0;font-size:11.5px;color:var(--color-accent-300)">'+esc(R.e_lookupNote)+'</p>' : '')
     + '<div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">'+R.e_rowsTrip.map(f=>this.fieldHTML(f)).join('')
     + '<div class="field" style="flex:1 1 30%"><label>Toll presets</label>'+this.selectHTML(R.e_tollOpts, '', R.e_applyToll)+'</div></div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">'+R.e_rowsHaul.map(f=>this.fieldHTML(f)).join('')+'</div>'
+    + '<p class="text-muted" style="margin:0;font-size:10.5px">Needed a truck? Rental + its fuel count into this item’s cost and get their own P&amp;L line — they stay out of your own-vehicle mileage log.</p>'
     + '</div>';
   if(R.e_showSell){
     out += '<div class="card elev-sm" style="gap:var(--space-2)"><span class="card-kicker">Listing &amp; sale</span>'

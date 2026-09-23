@@ -25,7 +25,14 @@ const nnOrder = (home, stops) => { const left = stops.slice(); const order = [];
 
 // — trip cost —
 const tripCost = (oneWayMiles, s, tolls) => { if(oneWayMiles==null) return null; const rt = oneWayMiles*2; const gas = rt/(s.mpg||23)*(s.gasPrice||4); const wear = rt*(s.wearRate||0); const t = tolls||0; return {rtMiles: rt, gas, wear, tolls: t, total: gas+wear+t}; };
-const pickupTrip = (it, s) => { if(it.pickup && it.pickup.alloc!=null) return {rtMiles: it.pickup.rtMiles||0, gas:0, wear:0, tolls:0, total: it.pickup.alloc, alloc:true, min: it.pickup.min}; if(it.pickup && it.pickup.miles!=null) { const c = tripCost(it.pickup.miles, s, it.pickup.tolls); c.min = it.pickup.min; c.est = !!it.pickup.est; return c; } return null; };
+const haulAmt = it => it.pickup ? ((it.pickup.rental||0) + (it.pickup.rentalGas||0)) : 0;
+const pickupTrip = (it, s) => {
+  const haul = haulAmt(it);
+  if(it.pickup && it.pickup.alloc!=null) return {rtMiles: it.pickup.rtMiles||0, gas:0, wear:0, tolls:0, rental: it.pickup.rental||0, rentalGas: it.pickup.rentalGas||0, total: it.pickup.alloc + haul, alloc:true, min: it.pickup.min};
+  if(it.pickup && it.pickup.miles!=null) { const c = tripCost(it.pickup.miles, s, it.pickup.tolls); c.min = it.pickup.min; c.est = !!it.pickup.est; c.rental = it.pickup.rental||0; c.rentalGas = it.pickup.rentalGas||0; c.total += haul; return c; }
+  if(haul>0) return {rtMiles:0, gas:0, wear:0, tolls:0, rental: it.pickup.rental||0, rentalGas: it.pickup.rentalGas||0, total: haul};
+  return null;
+};
 const deliveryTrip = (it, s) => (it.delivered && it.delivery && it.delivery.miles!=null) ? tripCost(it.delivery.miles, s, it.delivery.tolls) : null;
 const feeAmt = it => { if(it.soldPrice==null) return 0; return it.feeMode==='flat' ? (it.feeFlat||0) : (it.soldPrice*(it.feePct||0)/100); };
 
@@ -69,10 +76,13 @@ const rangePnl = (data, s, from, to) => {
   (data.items||[]).forEach(it => { if(it.status==='sold' && inR(it.soldDate)){ gross += it.soldPrice||0; cogs += it.purchasePrice||0; fees += feeAmt(it); units++; } });
   let vehicle=0, miles=0;
   mileageLog(data, s).forEach(r => { if(inR(r.date)){ vehicle += r.cost; miles += r.rtMiles; } });
+  // truck/U-Haul rentals: incurred at pickup, deducted separately from own-vehicle costs
+  let rental=0;
+  (data.items||[]).forEach(it => { if(['purchased','listed','sold'].includes(it.status) && haulAmt(it)>0 && inR(it.purchaseDate||it.createdAt)) rental += haulAmt(it); });
   let other=0; const byCat={};
   (data.expenses||[]).forEach(e => { if(inR(e.date)){ other += e.amount||0; byCat[e.cat]=(byCat[e.cat]||0)+(e.amount||0); } });
-  const net = gross - cogs - fees - vehicle - other;
-  return {gross, cogs, fees, vehicle, other, net, units, miles, byCat};
+  const net = gross - cogs - fees - vehicle - rental - other;
+  return {gross, cogs, fees, vehicle, rental, other, net, units, miles, byCat};
 };
 const monthRange = k => { const [y,m]=k.split('-').map(Number); const last = new Date(y, m, 0).getDate(); return [k+'-01', k+'-'+String(last).padStart(2,'0')]; };
 const quarterRange = (y,q) => [ [y+'-01-01',y+'-03-31'], [y+'-04-01',y+'-06-30'], [y+'-07-01',y+'-09-30'], [y+'-10-01',y+'-12-31'] ][q-1];

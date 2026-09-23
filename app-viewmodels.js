@@ -130,8 +130,17 @@ App.prototype.vDetail = function(L,s,d,econ){
     out.d_net = nv!=null?(nv>=0?'+':'')+M(nv):'—'; out.d_netTone = nv>=0?this.GOOD():this.BAD();
     out.d_roi = ec.roi!=null?ec.roi.toFixed(0)+'% ROI':(ec.invested!=null?M0(ec.invested)+' invested':'');
     const pt = ec.pt; out.d_hasTrip = !!pt;
-    if(pt){ out.d_trip = pt.alloc ? [{k:'Allocated share of run', v:M(pt.total)},{k:'Round-trip miles (share)', v:pt.rtMiles.toFixed(1)+' mi'}] : [{k:'Round-trip miles', v:pt.rtMiles.toFixed(1)+' mi'+(pt.min?' · ~'+pt.min*2+' min':'')},{k:'Gas ('+s.mpg+' MPG @ '+M(s.gasPrice)+')', v:M(pt.gas)},{k:'Wear & tear ('+M(s.wearRate)+'/mi)', v:M(pt.wear)},{k:'Tolls', v:M(pt.tolls)},{k:'Trip total', v:M(pt.total), strong:true}];
-      out.d_tripNote = pt.alloc ? 'Cost split from a sourcing run' : pt.est ? 'Estimated straight-line ×1.28 — verify with a route lookup' : 'From entered/looked-up route'; }
+    if(pt){
+      const haul = (pt.rental||0) + (pt.rentalGas||0);
+      let rowsT;
+      if(pt.alloc) rowsT = [{k:'Allocated share of run', v:M(pt.total - haul)},{k:'Round-trip miles (share)', v:pt.rtMiles.toFixed(1)+' mi'}];
+      else if(pt.rtMiles>0) rowsT = [{k:'Round-trip miles', v:pt.rtMiles.toFixed(1)+' mi'+(pt.min?' · ~'+pt.min*2+' min':'')},{k:'Gas ('+s.mpg+' MPG @ '+M(s.gasPrice)+')', v:M(pt.gas)},{k:'Wear & tear ('+M(s.wearRate)+'/mi)', v:M(pt.wear)},{k:'Tolls', v:M(pt.tolls)}];
+      else rowsT = [];
+      if(pt.rental>0) rowsT.push({k:'Truck/U-Haul rental', v:M(pt.rental)});
+      if(pt.rentalGas>0) rowsT.push({k:'Rental fuel', v:M(pt.rentalGas)});
+      rowsT.push({k:'Trip total', v:M(pt.total), strong:true});
+      out.d_trip = rowsT;
+      out.d_tripNote = pt.alloc ? 'Cost split from a sourcing run' : pt.est ? 'Estimated straight-line ×1.28 — verify with a route lookup' : (pt.rtMiles>0 ? 'From entered/looked-up route' : 'Rental haul — no own-vehicle miles logged'); }
     const dt = ec.dt; out.d_hasDel = !!dt;
     if(dt) out.d_delTrip = [{k:'Delivery round-trip', v:dt.rtMiles.toFixed(1)+' mi'},{k:'Delivery cost', v:M(dt.total)}];
     out.d_mapOn = this.mapReady() && !!it.coords;
@@ -228,6 +237,7 @@ App.prototype.vEdit = function(L,s,d){
     out.e_rowsTrip = [B(this.fld('One-way miles', e.miles, eset('miles'), 'number','12.5','30%'),'edit.miles'), B(this.fld('Drive min (1-way)', e.min, eset('min'), 'number','22','30%'),'edit.min'), B(this.fld('Tolls $ (RT)', e.tolls, eset('tolls'), 'number','0','30%'),'edit.tolls')];
     out.e_tollOpts = [{v:'',label:'Toll preset…'}].concat(this.vd().tollPresets.map(t=>({v:t.id, label:t.name+' — '+L.money(t.amount)})));
     out.e_applyToll = this.applyTollEdit();
+    out.e_rowsHaul = [B(this.fld('Truck/U-Haul rental $', e.rental, eset('rental'), 'number','0','46%'),'edit.rental'), B(this.fld('Rental fuel $', e.rentalGas, eset('rentalGas'), 'number','0','46%'),'edit.rentalGas')];
     out.e_showSell = e.status==='listed'||e.status==='sold';
     out.e_rowsList = [B(this.fld('Listing price $', e.listPrice, eset('listPrice'), 'number','895','46%'),'edit.listPrice'), B(this.fld('Listing date', e.listDate, eset('listDate'), 'date','','46%'),'edit.listDate')];
     out.e_listedOn = ['Facebook Marketplace','OfferUp','eBay','Craigslist'].map(p => { const on = (e.listedOn||[]).includes(p);
@@ -323,6 +333,7 @@ App.prototype.vMoney = function(L,s,d,econ){
       {k:'Cost of goods sold', v:'−'+M(p.cogs), sub:'Part III — purchase prices of items sold'},
       {k:'Platform fees', v:'−'+M(p.fees), sub:'Line 10 — commissions & fees'},
       {k:'Vehicle costs (actual)', v:'−'+M(p.vehicle), sub:'Line 9 — gas + wear + tolls, '+p.miles.toFixed(0)+' mi'},
+      {k:'Truck & equipment rental', v:'−'+M(p.rental||0), sub:'Line 20a — U-Haul & rentals at pickup'},
       {k:'Other business expenses', v:'−'+M(p.other), sub:'Part V — supplies, storage, phone %'}
     ];
     out.m_net = (p.net>=0?'+':'')+M(p.net); out.m_netTone = p.net>=0?this.GOOD():this.BAD();
