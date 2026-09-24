@@ -44,7 +44,7 @@ App.prototype.tplDetail = function(R){
     if(R.b_noCands) out += '<p class="text-muted" style="font-size:12px;margin:0">Nothing else in inventory to combine with.</p>';
     out += '<div data-skey="bundlecands" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto" class="ftp-scroll">';
     R.b_cands.forEach(c => {
-      out += '<button type="button" data-h="'+this.h(c.toggle)+'" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:transparent;border:1px solid '+c.bd+';border-radius:var(--radius-md);cursor:pointer;color:inherit;text-align:left"><i class="'+c.icon+'" style="font-size:17px;color:'+c.fg+';flex:none"></i><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(c.title)+'</span><span class="text-muted" style="display:block;font-size:10.5px">'+esc(c.sub)+'</span></span><span class="'+c.statusCls+'" style="font-size:10px;flex:none">'+esc(c.statusLabel)+'</span></button>';
+      out += '<button type="button" data-h="'+this.h(c.toggle)+'" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:transparent;border:1px solid '+c.bd+';border-radius:var(--radius-md);cursor:pointer;color:inherit;text-align:left"><i class="'+c.icon+'" style="font-size:17px;color:'+c.fg+';flex:none"></i><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;overflow-wrap:anywhere">'+esc(c.title)+'</span><span class="text-muted" style="display:block;font-size:10.5px">'+esc(c.sub)+'</span></span><span class="'+c.statusCls+'" style="font-size:10px;flex:none">'+esc(c.statusLabel)+'</span></button>';
     });
     out += '</div>'
       + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn btn-primary" data-h="'+this.h(R.b_confirm)+'"><i class="ph ph-arrows-merge"></i>Create bundle</button><button type="button" class="btn btn-ghost" data-h="'+this.h(R.b_cancel)+'">Cancel</button><span class="text-muted" style="margin-left:auto;font-size:11.5px">'+esc(R.b_count)+'</span></div>'
@@ -54,7 +54,7 @@ App.prototype.tplDetail = function(R){
     out += '<div class="card elev-sm" style="gap:var(--space-1)"><div style="display:flex;justify-content:space-between;align-items:center"><span class="card-kicker">Contains</span><button type="button" class="btn btn-ghost" data-h="'+this.h(R.d_unbundle)+'" style="font-size:12px"><i class="ph ph-arrows-split"></i>Unbundle</button></div>';
     R.d_bundleParts.forEach(p => {
       out += '<button type="button" data-h="'+this.h(p.open)+'" style="display:flex;align-items:center;gap:10px;padding:7px 4px;background:none;border:none;cursor:pointer;color:inherit;text-align:left;border-radius:var(--radius-sm)" class="ftp-hover-tint">'
-        + '<span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.title)+'</span>'
+        + '<span style="flex:1;min-width:0;font-size:13px;overflow-wrap:anywhere">'+esc(p.title)+'</span>'
         + '<span style="flex:none;text-align:right"><span style="display:block;font-size:13px;font-weight:500">'+esc(p.cost)+'</span><span class="text-muted" style="display:block;font-size:10px">'+esc(p.sub)+'</span></span>'
         + '</button>';
     });
@@ -76,7 +76,7 @@ App.prototype.tplDetail = function(R){
     out += '<div class="card elev-sm" style="gap:var(--space-1)"><span class="card-kicker" style="margin-bottom:4px">Parts</span>';
     R.d_lotParts.forEach(p => {
       out += '<button type="button" data-h="'+this.h(p.open)+'" style="display:flex;align-items:center;gap:10px;padding:7px 4px;background:none;border:none;cursor:pointer;color:inherit;text-align:left;border-radius:var(--radius-sm)" class="ftp-hover-tint">'
-        + '<span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.title)+'</span>'
+        + '<span style="flex:1;min-width:0;font-size:13px;overflow-wrap:anywhere">'+esc(p.title)+'</span>'
         + '<span class="'+p.statusCls+'" style="font-size:10px;flex:none">'+esc(p.statusLabel)+'</span>'
         + '<span style="flex:none;text-align:right"><span style="display:block;font-size:13px;font-weight:500;color:'+p.tone+'">'+esc(p.right)+'</span><span class="text-muted" style="display:block;font-size:10px">'+esc(p.sub2)+'</span></span>'
         + '</button>';

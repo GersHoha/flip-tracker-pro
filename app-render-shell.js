@@ -87,7 +87,7 @@ App.prototype.tplHome = function(R){
   R.ops.forEach(o => {
     out += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0">'
       + '<button type="button" data-h="'+this.h(o.toggle)+'" aria-label="Mark done" style="width:22px;height:22px;flex:none;border-radius:50%;cursor:pointer;padding:0;display:grid;place-items:center;border:1.5px solid '+o.cbd+';background:'+o.cbg+';color:var(--color-accent-100)">'+(o.done?'<i class="ph ph-check" style="font-size:12px"></i>':'')+'</button>'
-      + '<div style="flex:1;min-width:0"><div style="font-size:13px;text-decoration:'+o.deco+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(o.label)+'</div><div class="text-muted" style="font-size:11px">'+esc(o.sub)+'</div></div>'
+      + '<div style="flex:1;min-width:0"><div style="font-size:13px;text-decoration:'+o.deco+';overflow-wrap:anywhere">'+esc(o.label)+'</div><div class="text-muted" style="font-size:11px">'+esc(o.sub)+'</div></div>'
       + (o.hasNav ? '<a class="btn btn-ghost" href="'+esc(o.href)+'" target="_blank" rel="noopener" style="font-size:12px;flex:none"><i class="ph ph-navigation-arrow"></i>Go</a>' : '')
       + (o.hasOpen ? '<button type="button" class="btn btn-ghost" data-h="'+this.h(o.open)+'" style="font-size:12px;flex:none">View</button>' : '')
       + '</div>';
@@ -103,7 +103,7 @@ App.prototype.tplHome = function(R){
   R.h_recent.forEach(r => {
     out += '<button type="button" data-h="'+this.h(r.open)+'" style="display:flex;align-items:center;gap:10px;padding:7px 4px;background:none;border:none;cursor:pointer;color:inherit;text-align:left;border-radius:var(--radius-sm)" class="ftp-hover-tint">'
       + '<i class="'+r.icon+'" style="font-size:16px;color:var(--color-accent);flex:none"></i>'
-      + '<span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.title)+'<span class="text-muted" style="font-size:11.5px"> — '+esc(r.sub)+'</span></span>'
+      + '<span style="flex:1;min-width:0;font-size:13px;overflow-wrap:anywhere">'+esc(r.title)+'<span class="text-muted" style="font-size:11.5px"> — '+esc(r.sub)+'</span></span>'
       + '<span style="flex:none;font-size:13px;font-weight:500;color:'+r.tone+'">'+esc(r.amt)+'</span></button>';
   });
   out += '</div>';
@@ -127,7 +127,7 @@ App.prototype.tplItems = function(R){
   R.it_rows.forEach(r => {
     out += '<button type="button" data-h="'+this.h(r.open)+'" style="display:flex;align-items:center;gap:12px;padding:11px 13px;background:var(--color-surface);border:none;border-radius:var(--radius-md);cursor:pointer;color:inherit;text-align:left;box-shadow:var(--shadow-sm)">'
       + '<div style="width:38px;height:38px;flex:none;border-radius:9px;background:var(--color-neutral-900);display:grid;place-items:center"><i class="'+r.icon+'" style="font-size:18px;color:var(--color-accent)"></i></div>'
-      + '<div style="flex:1;min-width:0"><div style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.title)+'</div><div style="display:flex;align-items:center;gap:7px;margin-top:3px"><span class="'+r.statusCls+'" style="font-size:10px;padding:1.5px 8px">'+esc(r.statusLabel)+'</span><span class="text-muted" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.meta)+'</span></div></div>'
+      + '<div style="flex:1;min-width:0"><div style="font-size:14px;overflow-wrap:anywhere">'+esc(r.title)+'</div><div style="display:flex;align-items:center;gap:7px;margin-top:3px"><span class="'+r.statusCls+'" style="font-size:10px;padding:1.5px 8px">'+esc(r.statusLabel)+'</span><span class="text-muted" style="font-size:11px;overflow-wrap:anywhere">'+esc(r.meta)+'</span></div></div>'
       + '<div style="flex:none;text-align:right"><div style="font-size:14.5px;font-weight:500;color:'+r.tone+'">'+esc(r.r1)+'</div><div class="text-muted" style="font-size:10.5px">'+esc(r.r2)+'</div></div>'
       + '</button>';
   });
