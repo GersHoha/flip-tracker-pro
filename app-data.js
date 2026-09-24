@@ -36,12 +36,14 @@ const pickupTrip = (it, s) => {
 const deliveryTrip = (it, s) => (it.delivered && it.delivery && it.delivery.miles!=null) ? tripCost(it.delivery.miles, s, it.delivery.tolls) : null;
 const feeAmt = it => { if(it.soldPrice==null) return 0; return it.feeMode==='flat' ? (it.feeFlat||0) : (it.soldPrice*(it.feePct||0)/100); };
 
+const repairsTotal = it => (it.repairs||[]).reduce((a,r)=>a+(r.amount||0),0);
 const itemEcon = (it, s) => {
   const pt = pickupTrip(it, s), dt = deliveryTrip(it, s);
   const tripTotal = (pt?pt.total:0) + (dt?dt.total:0);
   const tripMiles = (pt?pt.rtMiles:0) + (dt?dt.rtMiles:0);
+  const repairs = repairsTotal(it);
   const cost = it.purchasePrice!=null ? it.purchasePrice : null;
-  const invested = cost!=null ? cost + tripTotal : null;
+  const invested = cost!=null ? cost + tripTotal + repairs : null;
   const fees = feeAmt(it);
   const net = (it.status==='sold' && it.soldPrice!=null && invested!=null) ? it.soldPrice - fees - invested : null;
   const roi = (net!=null && invested>0) ? net/invested*100 : null;
@@ -49,7 +51,7 @@ const itemEcon = (it, s) => {
   const daysToSell = (it.status==='sold' && it.purchaseDate && it.soldDate) ? daysBetween(it.purchaseDate, it.soldDate) : null;
   // projected profit for unsold, from listPrice
   const proj = (it.status!=='sold' && it.listPrice!=null && invested!=null) ? it.listPrice*(1-(it.feePct||0)/100) - invested : null;
-  return {pt, dt, tripTotal, tripMiles, invested, fees, net, roi, daysListed, daysToSell, proj};
+  return {pt, dt, tripTotal, tripMiles, repairs, invested, fees, net, roi, daysListed, daysToSell, proj};
 };
 
 // — mileage log (derived) —
@@ -79,10 +81,13 @@ const rangePnl = (data, s, from, to) => {
   // truck/U-Haul rentals: incurred at pickup, deducted separately from own-vehicle costs
   let rental=0;
   (data.items||[]).forEach(it => { if(['purchased','listed','sold'].includes(it.status) && haulAmt(it)>0 && inR(it.purchaseDate||it.createdAt)) rental += haulAmt(it); });
+  // repairs/refurb: deducted when incurred (per dated entry)
+  let repairs=0;
+  (data.items||[]).forEach(it => { if(['purchased','listed','sold'].includes(it.status)) (it.repairs||[]).forEach(r => { if(inR(r.date)) repairs += r.amount||0; }); });
   let other=0; const byCat={};
   (data.expenses||[]).forEach(e => { if(inR(e.date)){ other += e.amount||0; byCat[e.cat]=(byCat[e.cat]||0)+(e.amount||0); } });
-  const net = gross - cogs - fees - vehicle - rental - other;
-  return {gross, cogs, fees, vehicle, rental, other, net, units, miles, byCat};
+  const net = gross - cogs - fees - vehicle - rental - repairs - other;
+  return {gross, cogs, fees, vehicle, rental, repairs, other, net, units, miles, byCat};
 };
 const monthRange = k => { const [y,m]=k.split('-').map(Number); const last = new Date(y, m, 0).getDate(); return [k+'-01', k+'-'+String(last).padStart(2,'0')]; };
 const quarterRange = (y,q) => [ [y+'-01-01',y+'-03-31'], [y+'-04-01',y+'-06-30'], [y+'-07-01',y+'-09-30'], [y+'-10-01',y+'-12-31'] ][q-1];
@@ -191,5 +196,5 @@ const DEMO = () => {
 const BLANK = () => ({items:[], runs:[], expenses:[], payouts:[], templates: DEMO().templates.map(t=>({...t, demo:false})), tollPresets:[], opsDone:{}});
 const SEED = () => Object.assign({settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), opsDone:{}}, DEMO());
 
-window.FTP = {uid, iso, daysAgo, todayISO, money, money0, fmtDate, monthKey, monthLabel, daysBetween, clamp, num, HAV, estMiles, estMin, nnOrder, tripCost, pickupTrip, deliveryTrip, feeAmt, itemEcon, mileageLog, rangePnl, monthRange, quarterRange, parseListing, parseMapsLink, toCSV, download, PLATFORMS, STATUS, EXP_CATS, DEFAULT_SETTINGS, DEMO, SEED, BLANK};
+window.FTP = {uid, iso, daysAgo, todayISO, money, money0, fmtDate, monthKey, monthLabel, daysBetween, clamp, num, HAV, estMiles, estMin, nnOrder, tripCost, pickupTrip, deliveryTrip, feeAmt, itemEcon, mileageLog, rangePnl, monthRange, quarterRange, parseListing, parseMapsLink, repairsTotal, toCSV, download, PLATFORMS, STATUS, EXP_CATS, DEFAULT_SETTINGS, DEMO, SEED, BLANK};
 })();

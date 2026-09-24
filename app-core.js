@@ -15,7 +15,7 @@ class App {
     this.mq = window.matchMedia('(max-width: 820px)');
     this.maps = {}; this.rt = {}; this.geo = {}; this.handlers = [];
     this.state = {ready:false, mq:this.mq.matches, screen:'home', moneyTab:'pnl', plusOpen:false, moreOpen:false,
-      detailId:null, sellD:null, splitD:null, edit:null, quick:'', quickNote:'', lookupNote:'', evalNote:'',
+      detailId:null, sellD:null, splitD:null, bundleD:null, repD:{desc:'',amount:''}, edit:null, quick:'', quickNote:'', lookupNote:'', evalNote:'',
       evalD:{ask:'',target:'',address:'',miles:'',min:'',tolls:'0',low:'',exp:'',high:'',feePct:'0',days:'7',prep:''},
       runD:null, runNote:'', search:'', fStatus:'all', fCat:'all', sortBy:'newest',
       range:'3m', aCat:'all', pnlMode:'month', pnlCur:0, expD:{date:'',cat:'Packing supplies',desc:'',amount:''},
@@ -294,14 +294,17 @@ class App {
   }; }
   delItem(id){ return () => {
     const it = this.vd().items.find(x=>x.id===id);
-    const msg = (it&&it.isLot) ? 'Delete this lot record? Its parts stay as separate items.' : 'Delete this item? This can’t be undone.';
+    if(it && it.bundledInto){ this.toastMsg('This item is inside a bundle — unbundle it first'); return; }
+    const msg = (it&&it.isLot) ? 'Delete this lot record? Its parts stay as separate items.'
+      : (it&&it.bundleIds) ? 'Delete this bundle? Its items return to inventory.'
+      : 'Delete this item? This can’t be undone.';
     if(!confirm(msg)) return;
-    this.save(d => { d.items = d.items.filter(x=>x.id!==id); d.items.forEach(x => { if(x.lotId===id) delete x.lotId; }); });
+    this.save(d => { d.items = d.items.filter(x=>x.id!==id); d.items.forEach(x => { if(x.lotId===id) delete x.lotId; if(x.bundledInto===id) delete x.bundledInto; }); });
     this.setState({detailId:null}); this.toastMsg('Item deleted');
   }; }
   openDetail(id){ return () => { this.setState({detailId:id, sellD:null}); if(this.mapReady()){ const it = this.vd().items.find(x=>x.id===id); if(it && it.coords && !this.rt['d'+id]){ this.route(this.st().homeCoords, it.coords).then(r => { this.rt['d'+id] = r; this.populateMap('detail'); this.render(); }).catch(()=>{}); } } }; }
   advance(id){ return () => {
-    const L = this.L(); const it = this.vd().items.find(x=>x.id===id); if(!it || it.isLot) return;
+    const L = this.L(); const it = this.vd().items.find(x=>x.id===id); if(!it || it.isLot || it.bundledInto) return;
     if(it.status==='watching'){ this.save(d => { const x = d.items.find(y=>y.id===id); x.status='purchased'; if(x.purchasePrice==null) x.purchasePrice = x.target!=null?x.target:x.ask; if(!x.purchaseDate) x.purchaseDate = L.todayISO(); }); this.toastMsg('Marked purchased'); }
     else if(it.status==='purchased'){ if(it.listPrice==null){ this.openEdit(id, {status:'listed', listDate:L.todayISO()})(); this.toastMsg('Set a listing price, then save'); return; } this.save(d => { const x = d.items.find(y=>y.id===id); x.status='listed'; if(!x.listDate) x.listDate = L.todayISO(); }); this.toastMsg('Marked listed'); }
     else if(it.status==='listed'){ this.setState({sellD:{price:it.listPrice!=null?String(it.listPrice):'', date:L.todayISO(), platform:it.listedOn[0]||it.platform||'Facebook Marketplace', feePct:String(it.feePct||0), delivered:false, delAddress:'', delMiles:'', delTolls:''}}); }
@@ -340,7 +343,7 @@ class App {
     if(parts.length<2){ this.toastMsg('Name at least two parts'); return; }
     const totalCost = parts.reduce((a,p)=>a+p.cost,0); const orig = parent.purchasePrice||0;
     if(Math.abs(totalCost-orig)>0.02){ this.toastMsg('Part costs must add up to '+L.money(orig)); return; }
-    const pt = L.pickupTrip(parent, s); const tripTotal = pt?pt.total:0; const rt = pt?pt.rtMiles:0; const min = (pt&&pt.min)?pt.min:0;
+    const pt = L.pickupTrip(parent, s); const tripTotal = (pt?pt.total:0) + L.repairsTotal(parent); const rt = pt?pt.rtMiles:0; const min = (pt&&pt.min)?pt.min:0;
     const shares = parts.map(p => totalCost>0 ? p.cost/totalCost : 1/parts.length);
     this.save(d => {
       const px = d.items.find(x=>x.id===parent.id); if(!px) return;
@@ -352,6 +355,48 @@ class App {
     });
     this.setState({splitD:null}); this.toastMsg('Split into '+parts.length+' listings — tracked under the lot');
   }; }
+  // ——— bundles (combine owned items into one sellable item) ———
+  openBundle(id){ return () => {
+    const it = this.vd().items.find(x=>x.id===id); if(!it) return;
+    this.setState({bundleD:{baseId:id, ids:[], name:''}, sellD:null, splitD:null});
+  }; }
+  cancelBundle(){ return () => this.setState({bundleD:null}); }
+  toggleBundleItem(id){ return () => this.setState(s => { const ids = s.bundleD.ids.slice(); const i = ids.indexOf(id); if(i>=0) ids.splice(i,1); else ids.push(id); return {bundleD:Object.assign({}, s.bundleD, {ids})}; }); }
+  setBundleName(){ return e => this.setState(s => ({bundleD:Object.assign({}, s.bundleD, {name:e.target.value})})); }
+  confirmBundle(){ return () => {
+    const L = this.L(); const s = this.st(); const bd = this.state.bundleD;
+    const compIds = [bd.baseId].concat(bd.ids);
+    const comps = compIds.map(i => this.vd().items.find(x=>x.id===i)).filter(Boolean);
+    if(comps.length<2){ this.toastMsg('Pick at least one item to combine with'); return; }
+    const name = (bd.name||'').trim() || ('Bundle — '+comps[0].title);
+    const cost = comps.reduce((a,c)=>a+(c.purchasePrice||0),0);
+    let trip=0, rt=0, mn=0;
+    comps.forEach(c => { const pt = L.pickupTrip(c, s); if(pt){ trip += pt.total; rt += pt.rtMiles||0; mn += pt.min||0; } trip += L.repairsTotal(c); });
+    const dates = comps.map(c=>c.purchaseDate).filter(Boolean).sort();
+    this.save(d => {
+      const id = L.uid();
+      const bundle = {id, createdAt:L.todayISO(), title:name, cat:comps[0].cat, platform:comps[0].platform, status:'purchased', ask:null, target:null, purchasePrice:cost, purchaseDate:dates[0]||L.todayISO(), pickupAddress:'', coords:comps[0].coords||null, condition:'', notes:'', url:'', feeMode:'pct', feePct:0, listedOn:[], listPrice:null, listDate:null, soldPrice:null, soldDate:null, soldPlatform:null, delivered:false, delivery:null,
+        bundleIds: comps.map(c=>c.id),
+        pickup:{alloc:Math.round(trip*100)/100, rtMiles:Math.round(rt*10)/10, min:Math.round(mn)}};
+      const idx = d.items.indexOf(d.items.find(x=>x.id===bd.baseId));
+      d.items.splice(Math.max(0,idx), 0, bundle);
+      comps.forEach(c => { const dx = d.items.find(y=>y.id===c.id); if(dx){ dx.bundledInto = id; } });
+    });
+    this.setState({bundleD:null, detailId:null}); this.toastMsg('Combined '+comps.length+' items — list the bundle when ready');
+  }; }
+  unbundle(id){ return () => {
+    if(!confirm('Unbundle? The bundle goes away and its items return to inventory.')) return;
+    this.save(d => { d.items = d.items.filter(x=>x.id!==id); d.items.forEach(x => { if(x.bundledInto===id) delete x.bundledInto; }); });
+    this.setState({detailId:null}); this.toastMsg('Unbundled — items restored');
+  }; }
+  // ——— repairs / refurb ———
+  addRepair(id){ return () => {
+    const L = this.L(); const r = this.state.repD; const amt = L.num(r.amount);
+    if(!r.desc.trim() || amt==null){ this.toastMsg('Description and cost required'); return; }
+    this.save(d => { const x = d.items.find(y=>y.id===id); if(!x) return; x.repairs = x.repairs||[]; x.repairs.push({id:L.uid(), date:L.todayISO(), desc:r.desc.trim(), amount:amt}); });
+    this.setState({repD:{desc:'',amount:''}}); this.toastMsg('Repair logged');
+  }; }
+  delRepair(id, rid){ return () => this.save(d => { const x = d.items.find(y=>y.id===id); if(x && x.repairs) x.repairs = x.repairs.filter(r=>r.id!==rid); }); }
   // ——— evaluator ———
   lookupEval(){ return async () => {
     const L = this.L(); const s = this.st(); const ev = this.state.evalD;
@@ -477,8 +522,8 @@ class App {
   delPayout(id){ return () => this.save(d => { d.payouts = d.payouts.filter(x=>x.id!==id); }); }
   exportCSV(kind){ return () => {
     const L = this.L(); const d = this.vd(); const s = this.st();
-    if(kind==='items'){ const rows = [['Title','Category','Status','Platform','Purchase $','Purchase date','Sold $','Sold date','Fees $','Trip cost $','Net profit $','ROI %','Days listed','Pickup address','RT miles']];
-      d.items.forEach(it => { const ec = L.itemEcon(it, s); rows.push([it.title, it.cat, it.status, it.platform, it.purchasePrice, it.purchaseDate, it.soldPrice, it.soldDate, ec.fees?ec.fees.toFixed(2):'', ec.tripTotal?ec.tripTotal.toFixed(2):'', ec.net!=null?ec.net.toFixed(2):'', ec.roi!=null?ec.roi.toFixed(1):'', ec.daysListed, it.pickupAddress, ec.tripMiles?ec.tripMiles.toFixed(1):'']); });
+    if(kind==='items'){ const rows = [['Title','Category','Status','Platform','Purchase $','Purchase date','Sold $','Sold date','Fees $','Trip cost $','Repairs $','Net profit $','ROI %','Days listed','Pickup address','RT miles']];
+      d.items.forEach(it => { const ec = L.itemEcon(it, s); rows.push([it.title, it.cat, it.status, it.platform, it.purchasePrice, it.purchaseDate, it.soldPrice, it.soldDate, ec.fees?ec.fees.toFixed(2):'', ec.tripTotal?ec.tripTotal.toFixed(2):'', ec.repairs?ec.repairs.toFixed(2):'', ec.net!=null?ec.net.toFixed(2):'', ec.roi!=null?ec.roi.toFixed(1):'', ec.daysListed, it.pickupAddress, ec.tripMiles?ec.tripMiles.toFixed(1):'']); });
       L.download('flip-tracker-items.csv', L.toCSV(rows), 'text/csv'); }
     if(kind==='mileage'){ const rows = [['Date','Business purpose','Destination','Round-trip miles','Actual vehicle cost $','Standard deduction $ @ '+s.stdRate.toFixed(2)]];
       let tm=0, tc=0; L.mileageLog(d, s).forEach(r => { tm+=r.rtMiles; tc+=r.cost; rows.push([r.date, r.purpose, r.dest, r.rtMiles.toFixed(1), r.cost.toFixed(2), (r.rtMiles*s.stdRate).toFixed(2)]); });
@@ -486,7 +531,7 @@ class App {
       L.download('flip-tracker-mileage-log.csv', L.toCSV(rows), 'text/csv'); }
     if(kind==='expenses'){ const rows = [['Date','Category','Description','Amount $']]; d.expenses.forEach(e => rows.push([e.date, e.cat, e.desc, e.amount.toFixed(2)])); L.download('flip-tracker-expenses.csv', L.toCSV(rows), 'text/csv'); }
     if(kind==='pnl'){ const pr = this.pnlRange(); const p = L.rangePnl(d, s, pr.r[0], pr.r[1]);
-      const rows = [['Flip Tracker Pro — P&L', pr.label], ['Gross sales', p.gross.toFixed(2)], ['Cost of goods sold', (-p.cogs).toFixed(2)], ['Platform fees', (-p.fees).toFixed(2)], ['Vehicle costs (actual)', (-p.vehicle).toFixed(2)], ['Truck & equipment rental', (-(p.rental||0)).toFixed(2)], ['Other business expenses', (-p.other).toFixed(2)], ['Net profit', p.net.toFixed(2)], ['Items sold', p.units], ['Business miles', p.miles.toFixed(1)]];
+      const rows = [['Flip Tracker Pro — P&L', pr.label], ['Gross sales', p.gross.toFixed(2)], ['Cost of goods sold', (-p.cogs).toFixed(2)], ['Platform fees', (-p.fees).toFixed(2)], ['Vehicle costs (actual)', (-p.vehicle).toFixed(2)], ['Truck & equipment rental', (-(p.rental||0)).toFixed(2)], ['Repairs & refurbishing', (-(p.repairs||0)).toFixed(2)], ['Other business expenses', (-p.other).toFixed(2)], ['Net profit', p.net.toFixed(2)], ['Items sold', p.units], ['Business miles', p.miles.toFixed(1)]];
       L.download('flip-tracker-pnl-'+pr.label.replace(/\s/g,'-').toLowerCase()+'.csv', L.toCSV(rows), 'text/csv'); }
     if(kind==='json'){ L.download('flip-tracker-backup.json', JSON.stringify(this.state.data, null, 1), 'application/json'); }
     this.toastMsg('Export started');

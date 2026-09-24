@@ -10,10 +10,12 @@ App.prototype.tplDetail = function(R){
     + (R.d_hasAddr ? '<a class="btn btn-primary" href="'+esc(R.d_navHref)+'" target="_blank" rel="noopener"><i class="ph ph-navigation-arrow"></i>Navigate</a>' : '')
     + (R.d_canAdv ? '<button type="button" class="btn btn-primary" data-h="'+this.h(R.d_advance)+'"><i class="ph ph-arrow-right"></i>'+esc(R.d_advLabel)+'</button>' : '')
     + (R.d_splitShow ? '<button type="button" class="btn btn-secondary" data-h="'+this.h(R.d_split)+'"><i class="ph ph-arrows-split"></i>Split into parts</button>' : '')
+    + (R.d_combineShow ? '<button type="button" class="btn btn-secondary" data-h="'+this.h(R.d_combine)+'"><i class="ph ph-arrows-merge"></i>Combine with…</button>' : '')
     + '<button type="button" class="btn btn-secondary" data-h="'+this.h(R.d_edit)+'"><i class="ph ph-pencil-simple"></i>Edit</button>'
     + '<button type="button" class="btn btn-icon btn-secondary" data-h="'+this.h(R.d_del)+'" aria-label="Delete item" style="margin-left:auto"><i class="ph ph-trash"></i></button>'
     + '</div>';
   if(R.d_hasLotParent) out += '<button type="button" class="btn btn-ghost" data-h="'+this.h(R.d_lotParent.open)+'" style="align-self:flex-start;font-size:12px"><i class="ph ph-stack"></i>Part of lot: '+esc(R.d_lotParent.title)+'</button>';
+  if(R.d_hasBundleParent) out += '<div class="card" style="flex-direction:row;align-items:center;gap:10px;background:var(--color-accent-900)"><i class="ph ph-arrows-merge" style="font-size:16px;color:var(--color-accent)"></i><span style="flex:1;font-size:12.5px">This item was combined into a bundle — its cost now lives there.</span><button type="button" class="btn btn-ghost" data-h="'+this.h(R.d_bundleParent.open)+'" style="font-size:12px">'+esc(R.d_bundleParent.title)+'</button></div>';
   if(R.d_showStepper) out += '<div style="display:flex;align-items:center;gap:4px;padding:2px 0">'
     + R.d_steps.map(sp=>'<div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0"><div style="width:19px;height:19px;flex:none;border-radius:50%;border:1.5px solid '+sp.bd+';background:'+sp.bg+';display:grid;place-items:center">'+(sp.done?'<i class="ph ph-check" style="font-size:10px;color:var(--color-accent-200)"></i>':'')+'</div><span style="font-size:10.5px;color:'+sp.fg+';white-space:nowrap">'+esc(sp.label)+'</span><div style="flex:1;height:1px;background:var(--color-divider);min-width:6px"></div></div>').join('')
     + '</div>';
@@ -33,6 +35,37 @@ App.prototype.tplDetail = function(R){
       + '<span style="margin-left:auto;font-size:11.5px;color:'+(R.sp_sumOk?'var(--color-accent-300)':this.WARN())+'">'+esc(R.sp_sumLine)+'</span>'
       + '</div>'
       + '<div style="display:flex;gap:8px"><button type="button" class="btn btn-primary" data-h="'+this.h(R.sp_confirm)+'"><i class="ph ph-arrows-split"></i>Create the parts</button><button type="button" class="btn btn-ghost" data-h="'+this.h(R.sp_cancel)+'">Cancel</button></div>'
+      + '</div>';
+  }
+  if(R.d_bundleOpen){
+    out += '<div class="card elev-md" style="gap:var(--space-2)"><span class="card-kicker">Combine into a bundle</span>'
+      + '<p class="text-muted" style="margin:0;font-size:11.5px">The picked items merge into one sellable bundle carrying all their costs — purchase shares, trip costs, repairs. Unbundle any time to get them back.</p>'
+      + '<div class="field"><label>Bundle name</label><input class="input" placeholder="'+esc(R.b_namePh)+'" value="'+esc(R.b_name)+'" data-bind="bundleD.name" data-h="'+this.h(R.b_setName)+'"></div>';
+    if(R.b_noCands) out += '<p class="text-muted" style="font-size:12px;margin:0">Nothing else in inventory to combine with.</p>';
+    out += '<div data-skey="bundlecands" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto" class="ftp-scroll">';
+    R.b_cands.forEach(c => {
+      out += '<button type="button" data-h="'+this.h(c.toggle)+'" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:transparent;border:1px solid '+c.bd+';border-radius:var(--radius-md);cursor:pointer;color:inherit;text-align:left"><i class="'+c.icon+'" style="font-size:17px;color:'+c.fg+';flex:none"></i><span style="flex:1;min-width:0"><span style="display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(c.title)+'</span><span class="text-muted" style="display:block;font-size:10.5px">'+esc(c.sub)+'</span></span><span class="'+c.statusCls+'" style="font-size:10px;flex:none">'+esc(c.statusLabel)+'</span></button>';
+    });
+    out += '</div>'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn btn-primary" data-h="'+this.h(R.b_confirm)+'"><i class="ph ph-arrows-merge"></i>Create bundle</button><button type="button" class="btn btn-ghost" data-h="'+this.h(R.b_cancel)+'">Cancel</button><span class="text-muted" style="margin-left:auto;font-size:11.5px">'+esc(R.b_count)+'</span></div>'
+      + '</div>';
+  }
+  if(R.d_isBundle){
+    out += '<div class="card elev-sm" style="gap:var(--space-1)"><div style="display:flex;justify-content:space-between;align-items:center"><span class="card-kicker">Contains</span><button type="button" class="btn btn-ghost" data-h="'+this.h(R.d_unbundle)+'" style="font-size:12px"><i class="ph ph-arrows-split"></i>Unbundle</button></div>';
+    R.d_bundleParts.forEach(p => {
+      out += '<button type="button" data-h="'+this.h(p.open)+'" style="display:flex;align-items:center;gap:10px;padding:7px 4px;background:none;border:none;cursor:pointer;color:inherit;text-align:left;border-radius:var(--radius-sm)" class="ftp-hover-tint">'
+        + '<span style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.title)+'</span>'
+        + '<span style="flex:none;text-align:right"><span style="display:block;font-size:13px;font-weight:500">'+esc(p.cost)+'</span><span class="text-muted" style="display:block;font-size:10px">'+esc(p.sub)+'</span></span>'
+        + '</button>';
+    });
+    out += '</div>';
+  }
+  if(R.d_repShow){
+    out += '<div class="card elev-sm" style="gap:var(--space-2)"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="card-kicker">Repairs &amp; refurb</span>'+(R.d_repHasAny?'<span style="font-size:12.5px;font-weight:500">'+esc(R.d_repTotal)+'</span>':'')+'</div>';
+    R.d_repairs.forEach(r => {
+      out += '<div style="display:flex;align-items:center;gap:10px;padding:2px 0;font-size:13px"><span class="text-muted" style="flex:none;width:52px;font-size:11.5px">'+esc(r.date)+'</span><span style="flex:1;min-width:0">'+esc(r.desc)+'</span><span style="font-weight:500">'+esc(r.amt)+'</span><button type="button" class="btn btn-icon btn-ghost" data-h="'+this.h(r.del)+'" aria-label="Delete repair" style="width:28px;height:28px"><i class="ph ph-x" style="font-size:13px"></i></button></div>';
+    });
+    out += '<div style="display:flex;gap:8px"><input class="input" placeholder="New wheels, cleaning, paint…" value="'+esc(R.d_repDesc)+'" data-bind="repD.desc" data-h="'+this.h(R.d_repSetDesc)+'"><input class="input" type="number" placeholder="25" style="flex:0 0 84px" value="'+esc(R.d_repAmt)+'" data-bind="repD.amount" data-h="'+this.h(R.d_repSetAmt)+'"><button type="button" class="btn btn-primary" data-h="'+this.h(R.d_repAdd)+'" style="flex:none">Add</button></div>'
       + '</div>';
   }
   if(R.d_isLot){

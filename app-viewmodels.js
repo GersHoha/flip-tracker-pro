@@ -40,19 +40,20 @@ App.prototype.renderVals = function(){
     shell.h_paceMsg = onPace ? 'On pace — keep feeding the pipeline' : 'Behind pace — time to list & flip harder';
     shell.h_paceColor = onPace ? 'var(--color-accent-300)' : 'var(--color-neutral-400)';
     const opsDone = (S.data.opsDone && S.data.opsDone[T]) || [];
+    const live = it => !it.bundledInto;
     const ops = [];
-    d.items.filter(it => it.status==='purchased' && it.pickupDate===T).forEach(it => ops.push({key:'pk'+it.id, label:'Pickup: '+it.title, sub:(it.pickupAddress||'')+((it.pickup&&it.pickup.miles)?' · '+it.pickup.miles+' mi':''), hasNav:!!it.pickupAddress, href:this.navHref(it.pickupAddress), hasOpen:false}));
-    d.items.filter(it => it.status==='listed' && (it.listedOn||[]).includes('Facebook Marketplace') && L.daysBetween(it.renewedDate||it.listDate, T) >= s.renewDays).forEach(it => ops.push({key:'rn'+it.id, label:'Renew FB listing: '+it.title, sub:L.daysBetween(it.renewedDate||it.listDate, T)+' days since last renewal', hasOpen:true, open:this.openDetail(it.id)}));
-    d.items.filter(it => it.status==='listed' && econ(it).daysListed >= s.agingDays).forEach(it => ops.push({key:'rp'+it.id, label:'Reprice: '+it.title, sub:'Listed '+econ(it).daysListed+' days — consider '+M0((it.listPrice||0)*0.9), hasOpen:true, open:this.openDetail(it.id)}));
+    d.items.filter(it => live(it) && it.status==='purchased' && it.pickupDate===T).forEach(it => ops.push({key:'pk'+it.id, label:'Pickup: '+it.title, sub:(it.pickupAddress||'')+((it.pickup&&it.pickup.miles)?' · '+it.pickup.miles+' mi':''), hasNav:!!it.pickupAddress, href:this.navHref(it.pickupAddress), hasOpen:false}));
+    d.items.filter(it => live(it) && it.status==='listed' && (it.listedOn||[]).includes('Facebook Marketplace') && L.daysBetween(it.renewedDate||it.listDate, T) >= s.renewDays).forEach(it => ops.push({key:'rn'+it.id, label:'Renew FB listing: '+it.title, sub:L.daysBetween(it.renewedDate||it.listDate, T)+' days since last renewal', hasOpen:true, open:this.openDetail(it.id)}));
+    d.items.filter(it => live(it) && it.status==='listed' && econ(it).daysListed >= s.agingDays).forEach(it => ops.push({key:'rp'+it.id, label:'Reprice: '+it.title, sub:'Listed '+econ(it).daysListed+' days — consider '+M0((it.listPrice||0)*0.9), hasOpen:true, open:this.openDetail(it.id)}));
     ops.push({key:'msg', label:'Answer new marketplace messages', sub:'Facebook · OfferUp · Craigslist', hasNav:false, hasOpen:false});
     shell.ops = ops.map(o => { const done = opsDone.includes(o.key); return Object.assign(o, {done, toggle:this.toggleOps(o.key), deco:done?'line-through':'none', cbd:done?'var(--color-accent)':'var(--color-divider)', cbg:done?'var(--color-accent-800)':'transparent'}); });
     shell.h_opsEmpty = ops.length===0; shell.h_opsCount = ops.filter(o=>!o.done).length+' open';
-    const unsold = d.items.filter(it => ['purchased','listed'].includes(it.status));
+    const unsold = d.items.filter(it => live(it) && ['purchased','listed'].includes(it.status));
     const tied = unsold.reduce((a,it) => a + (econ(it).invested||0), 0);
-    const listedVal = d.items.filter(it=>it.status==='listed').reduce((a,it)=>a+(it.listPrice||0),0);
+    const listedVal = d.items.filter(it=>live(it) && it.status==='listed').reduce((a,it)=>a+(it.listPrice||0),0);
     shell.h_stats = [
       {label:'Capital tied up', value:M0(tied), sub:unsold.length+' unsold items'},
-      {label:'Listed value', value:M0(listedVal), sub:d.items.filter(i=>i.status==='listed').length+' active listings'},
+      {label:'Listed value', value:M0(listedVal), sub:d.items.filter(i=>live(i) && i.status==='listed').length+' active listings'},
       {label:'Miles this month', value:mp.miles.toFixed(0), sub:M(mp.vehicle)+' vehicle cost'},
       {label:'Fees this month', value:M(mp.fees), sub:mp.units+' items sold'}
     ];
@@ -85,7 +86,7 @@ App.prototype.vItems = function(L,s,d,econ){
     out.it_sort = S.sortBy; out.it_setSort = e=>this.setState({sortBy:e.target.value});
     out.it_sorts = [{v:'newest',label:'Newest first'},{v:'profit',label:'Highest profit'},{v:'days',label:'Longest listed'},{v:'title',label:'Title A–Z'}];
     const q = S.search.trim().toLowerCase();
-    let rows = d.items.filter(it => (S.fStatus==='all'||it.status===S.fStatus) && (S.fCat==='all'||it.cat===S.fCat) && (!q || (it.title+' '+(it.pickupAddress||'')+' '+(it.notes||'')).toLowerCase().includes(q)));
+    let rows = d.items.filter(it => !it.bundledInto && (S.fStatus==='all'||it.status===S.fStatus) && (S.fCat==='all'||it.cat===S.fCat) && (!q || (it.title+' '+(it.pickupAddress||'')+' '+(it.notes||'')).toLowerCase().includes(q)));
     if(S.sortBy==='title') rows = rows.slice().sort((a,b)=>a.title.localeCompare(b.title));
     else if(S.sortBy==='profit') rows = rows.slice().sort((a,b)=>{ const va = econ(a), vb = econ(b); const na = va.net!=null?va.net:(va.proj!=null?va.proj:-1e9), nb = vb.net!=null?vb.net:(vb.proj!=null?vb.proj:-1e9); return nb-na; });
     else if(S.sortBy==='days') rows = rows.slice().sort((a,b)=>(econ(b).daysListed||0)-(econ(a).daysListed||0));
@@ -98,7 +99,7 @@ App.prototype.vItems = function(L,s,d,econ){
       else if(it.status==='listed'){ r1 = M0(it.listPrice); r2 = (ec.proj!=null?'proj '+(ec.proj>=0?'+':'')+M0(ec.proj)+' · ':'')+(ec.daysListed!=null?ec.daysListed+'d listed':''); }
       else if(it.status==='purchased'){ r1 = M0(it.purchasePrice); r2 = ec.invested!=null?'in '+M0(ec.invested):''; }
       else { r1 = it.ask!=null?'ask '+M0(it.ask):''; r2 = it.target!=null?'target '+M0(it.target):''; }
-      return {id:it.id, open:this.openDetail(it.id), icon:this.catIcon(it.cat), title:it.title, statusLabel:this.statusLabel(it.status), statusCls:this.statusCls(it.status), meta:[it.cat, it.platform, L.fmtDate(this.itemDate(it))].filter(Boolean).join(' · '), r1, r2, tone};
+      return {id:it.id, open:this.openDetail(it.id), icon:this.catIcon(it.cat), title:it.title, statusLabel:this.statusLabel(it.status), statusCls:this.statusCls(it.status), meta:[it.cat, it.platform, L.fmtDate(this.itemDate(it)), (it.bundleIds&&it.bundleIds.length)?'bundle of '+it.bundleIds.length:null].filter(Boolean).join(' · '), r1, r2, tone};
     });
     out.it_count = rows.length + (rows.length===1?' item':' items'); out.it_empty = rows.length===0;
     out.it_emptyMsg = d.items.length===0 ? 'No items yet — tap Add item or paste a listing.' : 'Nothing matches these filters.';
@@ -111,7 +112,7 @@ App.prototype.vDetail = function(L,s,d,econ){
     const it = S.detailId ? d.items.find(x=>x.id===S.detailId) : null;
     if(!it) return {d_open:false};
     const ec = econ(it); const out = {d_open:true};
-    out.d_close = ()=>this.setState({detailId:null, sellD:null, splitD:null});
+    out.d_close = ()=>this.setState({detailId:null, sellD:null, splitD:null, bundleD:null});
     out.d_title = it.title; out.d_statusLabel = it.isLot ? 'Lot' : this.statusLabel(it.status); out.d_statusCls = it.isLot ? 'tag tag-accent-2' : this.statusCls(it.status);
     out.d_meta = [it.cat, it.platform, it.condition].filter(Boolean).join(' · ');
     out.d_hasUrl = !!it.url; out.d_url = it.url;
@@ -121,6 +122,7 @@ App.prototype.vDetail = function(L,s,d,econ){
     else if(it.status==='watching'){ if(it.ask!=null) rowsM.push({k:'Asking price', v:M0(it.ask)}); if(it.target!=null) rowsM.push({k:'Target price', v:M0(it.target)}); }
     else { rowsM.push({k:'Purchase price', v:M(it.purchasePrice), sub:L.fmtDate(it.purchaseDate)}); }
     if(ec.tripTotal>0) rowsM.push({k:'Trip costs', v:'−'+M(ec.tripTotal)});
+    if(ec.repairs>0) rowsM.push({k:'Repairs & refurb', v:'−'+M(ec.repairs)});
     if(it.status==='listed'||it.status==='sold'){ rowsM.push({k:'Listed at', v:M0(it.listPrice), sub:(it.listDate?L.fmtDate(it.listDate)+' · ':'')+(ec.daysListed!=null?ec.daysListed+' days':'')}); }
     if(it.status==='sold'){ rowsM.push({k:'Sold price', v:M(it.soldPrice), sub:L.fmtDate(it.soldDate)+' · '+(it.soldPlatform||'')}); if(ec.fees>0) rowsM.push({k:'Platform fees ('+(it.feePct||0)+'%)', v:'−'+M(ec.fees)}); }
     out.d_money = rowsM;
@@ -151,7 +153,7 @@ App.prototype.vDetail = function(L,s,d,econ){
     const ORDER = ['watching','purchased','listed','sold']; const cur = ORDER.indexOf(it.status);
     out.d_showStepper = !it.isLot;
     out.d_steps = ORDER.map((k,i) => ({label:this.statusLabel(k), on:i===cur, done:i<cur, fg:i<=cur?'var(--color-accent)':'color-mix(in srgb, var(--color-text) 40%, transparent)', bd:i<=cur?'var(--color-accent)':'var(--color-divider)', bg:i<cur?'var(--color-accent-800)':'transparent'}));
-    out.d_canAdv = it.status!=='sold' && !S.sellD && !it.isLot;
+    out.d_canAdv = it.status!=='sold' && !S.sellD && !it.isLot && !it.bundledInto;
     // ——— lot rollup (parent) ———
     out.d_isLot = !!it.isLot;
     if(it.isLot){
@@ -177,8 +179,39 @@ App.prototype.vDetail = function(L,s,d,econ){
     const lotParent = it.lotId ? d.items.find(x=>x.id===it.lotId) : null;
     out.d_hasLotParent = !!lotParent;
     if(lotParent) out.d_lotParent = {title:lotParent.title, open:this.openDetail(lotParent.id)};
+    // ——— bundle (combined items) ———
+    out.d_isBundle = !!(it.bundleIds && it.bundleIds.length);
+    if(out.d_isBundle){
+      out.d_bundleParts = it.bundleIds.map(bid => d.items.find(x=>x.id===bid)).filter(Boolean).map(c => { const ce = econ(c);
+        return {title:c.title, cost:M0(c.purchasePrice), sub:(ce.pt?M(ce.pt.total)+' trip':'')+(ce.repairs>0?(ce.pt?' · ':'')+M(ce.repairs)+' repairs':''), open:this.openDetail(c.id)}; });
+      out.d_unbundle = this.unbundle(it.id);
+    }
+    const bParent = it.bundledInto ? d.items.find(x=>x.id===it.bundledInto) : null;
+    out.d_hasBundleParent = !!bParent;
+    if(bParent) out.d_bundleParent = {title:bParent.title, open:this.openDetail(bParent.id)};
+    const bd = S.bundleD; out.d_bundleOpen = !!bd && bd.baseId===it.id;
+    out.d_combineShow = ['purchased','listed'].includes(it.status) && !it.isLot && !it.bundledInto && !S.sellD && !out.d_bundleOpen && !(S.splitD && S.splitD.parentId===it.id);
+    out.d_combine = this.openBundle(it.id);
+    if(out.d_bundleOpen){
+      out.b_name = bd.name; out.b_setName = this.setBundleName();
+      out.b_namePh = 'Bundle — '+it.title;
+      const cands = d.items.filter(x => x.id!==it.id && ['purchased','listed'].includes(x.status) && !x.isLot && !x.bundledInto);
+      out.b_cands = cands.map(c => { const on = bd.ids.includes(c.id); return {title:c.title, sub:[c.cat, c.purchasePrice!=null?M0(c.purchasePrice):null].filter(Boolean).join(' · '), toggle:this.toggleBundleItem(c.id), bd:on?'var(--color-accent)':'var(--color-divider)', fg:on?'var(--color-accent)':'inherit', icon:on?'ph-fill ph-check-square':'ph ph-square', statusCls:this.statusCls(c.status), statusLabel:this.statusLabel(c.status)}; });
+      out.b_noCands = cands.length===0;
+      out.b_count = (bd.ids.length+1)+' items in the bundle';
+      out.b_confirm = this.confirmBundle(); out.b_cancel = this.cancelBundle();
+    }
+    // ——— repairs / refurb ———
+    out.d_repShow = it.status!=='watching' && !it.isLot && !it.bundledInto;
+    if(out.d_repShow){
+      out.d_repairs = (it.repairs||[]).map(r => ({date:L.fmtDate(r.date), desc:r.desc, amt:M(r.amount), del:this.delRepair(it.id, r.id)}));
+      out.d_repTotal = M(ec.repairs||0); out.d_repHasAny = (it.repairs||[]).length>0;
+      out.d_repDesc = S.repD.desc; out.d_repSetDesc = this.dset('repD','desc');
+      out.d_repAmt = S.repD.amount; out.d_repSetAmt = this.dset('repD','amount');
+      out.d_repAdd = this.addRepair(it.id);
+    }
     // ——— split editor ———
-    out.d_splitShow = it.status==='purchased' && !it.isLot && !S.sellD && !(S.splitD && S.splitD.parentId===it.id);
+    out.d_splitShow = it.status==='purchased' && !it.isLot && !it.bundledInto && !S.sellD && !out.d_bundleOpen && !(S.splitD && S.splitD.parentId===it.id);
     out.d_split = this.openSplit(it.id);
     const spd = S.splitD; out.d_splitOpen = !!spd && spd.parentId===it.id;
     if(out.d_splitOpen){
@@ -292,7 +325,7 @@ App.prototype.vRuns = function(L,s,d,econ){
     out.r_empty = d.runs.length===0 && !rd;
     if(rd){
       out.r_name = rd.name; out.r_setName = this.dset('runD','name');
-      const cands = d.items.filter(it => ['watching','purchased'].includes(it.status));
+      const cands = d.items.filter(it => ['watching','purchased'].includes(it.status) && !it.bundledInto && !it.isLot);
       out.r_cands = cands.map(it => { const on = rd.ids.includes(it.id); return {id:it.id, title:it.title, on, toggle:this.toggleRunItem(it.id), sub:[it.pickupAddress, (it.pickup&&it.pickup.miles)?it.pickup.miles+' mi':null].filter(Boolean).join(' · '), statusLabel:this.statusLabel(it.status), statusCls:this.statusCls(it.status), bd:on?'var(--color-accent)':'var(--color-divider)', icon:on?'ph-fill ph-check-square':'ph ph-square', fg:on?'var(--color-accent)':'inherit'}; });
       out.r_noCands = cands.length===0;
       out.r_selCount = rd.ids.length+' selected';
@@ -334,6 +367,7 @@ App.prototype.vMoney = function(L,s,d,econ){
       {k:'Platform fees', v:'−'+M(p.fees), sub:'Line 10 — commissions & fees'},
       {k:'Vehicle costs (actual)', v:'−'+M(p.vehicle), sub:'Line 9 — gas + wear + tolls, '+p.miles.toFixed(0)+' mi'},
       {k:'Truck & equipment rental', v:'−'+M(p.rental||0), sub:'Line 20a — U-Haul & rentals at pickup'},
+      {k:'Repairs & refurbishing', v:'−'+M(p.repairs||0), sub:'Line 21 — parts, materials, refurb work'},
       {k:'Other business expenses', v:'−'+M(p.other), sub:'Part V — supplies, storage, phone %'}
     ];
     out.m_net = (p.net>=0?'+':'')+M(p.net); out.m_netTone = p.net>=0?this.GOOD():this.BAD();
@@ -422,13 +456,13 @@ App.prototype.vAnalytics = function(L,s,d,econ){
     out.a_catRows = cats.map(c => { const its = d.items.filter(it=>it.cat===c); const sc = its.filter(it=>it.status==='sold');
       const n = sc.map(it=>econ(it).net||0); const avgNet = n.length?n.reduce((a,b)=>a+b,0)/n.length:null;
       const r = sc.map(it=>econ(it).roi).filter(x=>x!=null); const avgRoi = r.length?r.reduce((a,b)=>a+b,0)/r.length:null;
-      const unsold = its.filter(it=>['listed','purchased'].includes(it.status)).length;
+      const unsold = its.filter(it=>['listed','purchased'].includes(it.status) && !it.bundledInto).length;
       const thru = (sc.length+unsold)>0 ? sc.length/(sc.length+unsold)*100 : null;
       const h = sc.map(it => { const ec = econ(it); const pm = (ec.pt&&ec.pt.min?ec.pt.min*2:0)+s.prepMin; return {net:ec.net||0, h:pm/60}; });
       const ph = h.length ? h.reduce((a,x)=>a+x.net,0)/h.reduce((a,x)=>a+x.h,0) : null;
       return {cat:c, flips:sc.length+' sold', avgNet:avgNet!=null?M0(avgNet):'—', roi:avgRoi!=null?avgRoi.toFixed(0)+'%':'—', thru:thru!=null?thru.toFixed(0)+'%':'—', perHr:ph!=null?M0(ph):'—', _s:avgNet||-1e9};
     }).sort((a,b)=>b._s-a._s);
-    const unsoldItems = d.items.filter(it=>['purchased','listed'].includes(it.status) && catOk(it));
+    const unsoldItems = d.items.filter(it=>['purchased','listed'].includes(it.status) && !it.bundledInto && catOk(it));
     const tied = unsoldItems.reduce((a,it)=>a+(econ(it).invested||0),0);
     const turns = sold.map(it=>econ(it).daysToSell).filter(x=>x!=null);
     const avgTurn = turns.length ? turns.reduce((a,b)=>a+b,0)/turns.length : null;
@@ -438,8 +472,8 @@ App.prototype.vAnalytics = function(L,s,d,econ){
       {label:'Capital cycles / month', value:avgTurn?(30/avgTurn).toFixed(1)+'×':'—', sub:'higher = faster compounding'},
       {label:'Avg days to sell', value:dts.length?(dts.reduce((a,b)=>a+b,0)/dts.length).toFixed(0)+' days':'—', sub:'listed → sold, in range'}
     ];
-    out.a_aging = d.items.filter(it => it.status==='listed' && econ(it).daysListed>=s.agingDays && catOk(it)).map(it => ({title:it.title, days:econ(it).daysListed+' days listed', price:M0(it.listPrice), suggest:'try '+M0((it.listPrice||0)*0.9), open:this.openDetail(it.id)}));
-    out.a_renews = d.items.filter(it => it.status==='listed' && (it.listedOn||[]).includes('Facebook Marketplace') && L.daysBetween(it.renewedDate||it.listDate, T)>=s.renewDays && catOk(it)).map(it => ({title:it.title, days:L.daysBetween(it.renewedDate||it.listDate, T)+' days since renewal', open:this.openDetail(it.id)}));
+    out.a_aging = d.items.filter(it => it.status==='listed' && !it.bundledInto && econ(it).daysListed>=s.agingDays && catOk(it)).map(it => ({title:it.title, days:econ(it).daysListed+' days listed', price:M0(it.listPrice), suggest:'try '+M0((it.listPrice||0)*0.9), open:this.openDetail(it.id)}));
+    out.a_renews = d.items.filter(it => it.status==='listed' && !it.bundledInto && (it.listedOn||[]).includes('Facebook Marketplace') && L.daysBetween(it.renewedDate||it.listDate, T)>=s.renewDays && catOk(it)).map(it => ({title:it.title, days:L.daysBetween(it.renewedDate||it.listDate, T)+' days since renewal', open:this.openDetail(it.id)}));
     out.a_hasAging = out.a_aging.length>0; out.a_hasRenews = out.a_renews.length>0;
     out.a_agingNote = 'Flagged after '+s.agingDays+' days listed · FB renewals every '+s.renewDays+' days (Settings)';
     const byNet = sold.filter(it=>it.soldDate>=range[0]&&it.soldDate<=range[1]).slice().sort((a,b)=>(econ(b).net||0)-(econ(a).net||0));
